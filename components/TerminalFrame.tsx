@@ -44,8 +44,7 @@ export function TerminalFrame() {
         <div
           className="absolute inset-0 pointer-events-none z-10"
           style={{
-            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)',
-            mixBlendMode: 'multiply',
+            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px)',
           }}
         />
         <Terminal />

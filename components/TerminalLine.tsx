@@ -1,12 +1,13 @@
 'use client'
 
+import { memo } from 'react'
 import type { OutputLine } from '@/lib/terminal/types'
 
 interface Props {
   line: OutputLine
 }
 
-export function TerminalLine({ line }: Props) {
+export const TerminalLine = memo(function TerminalLine({ line }: Props) {
   if (line.length === 0 || (line.length === 1 && line[0].text === '')) {
     return <div className="min-h-[1.5em]" />
   }
@@ -42,4 +43,4 @@ export function TerminalLine({ line }: Props) {
       })}
     </div>
   )
-}
+})

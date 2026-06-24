@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import type { HistoryEntry, OutputLine } from '@/lib/terminal/types'
 import { executeCommand } from '@/lib/terminal/commands'
 import { displayPath, getCompletions, HOME } from '@/lib/terminal/filesystem'
@@ -16,10 +16,12 @@ const C = {
 }
 
 const BOOT_LINES: OutputLine[] = [
-  [{ text: '  ___ ___  _   _    _      ___   ___  ___   ___ _____   ___   _____   __', color: C.mauve }],
-  [{ text: ' / __/ _ \\| | | |  | |    | _ \\ / _ \\| __| |   \\| __\\ / __| |   \\ \\ / /', color: C.mauve }],
-  [{ text: '| (_| (_) | |_| |  | |__  |  _/ \\_, /| _|  | |) | _|  \\__ \\ | |) |\\ V /', color: C.blue }],
-  [{ text: ' \\___\\___/ \\__,_|  |____| |_|    /_/ |___| |___/|___| |___/ |___/  \\_/', color: C.blue }],
+  [{ text: '           _ _                     _                     _', color: C.mauve }],
+  [{ text: '          | | |                   | |                   | |', color: C.mauve }],
+  [{ text: '  ___ __ _| | |_   _ _ __ ___   __| | ___  __ _ ___   __| | _____   __', color: C.mauve }],
+  [{ text: " / __/ _` | | | | | | '_ ` _ \\ / _` |/ _ \\/ _` / __| / _` |/ _ \\ \\ / /", color: C.blue }],
+  [{ text: '| (_| (_| | | | |_| | | | | | | (_| |  __/ (_| \\__ \\| (_| |  __/\\ V /', color: C.blue }],
+  [{ text: ' \\___\\__,_|_|_|\\__,_|_| |_| |_|\\__,_|\\___|\\__,_|___(_)__,_|\\___| \\_/', color: C.blue }],
   [{ text: '' }],
   [{ text: ' callumdeas.dev', color: C.mauve, bold: true }, { text: '  —  Personal Terminal', color: C.dim }],
   [{ text: '' }],
@@ -37,11 +39,13 @@ export function Terminal() {
   const [inputDraft, setInputDraft] = useState('')
 
   const inputRef = useRef<HTMLInputElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  // Snap to bottom instantly (like a real terminal) before paint — no animation.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [history])
 
   const focusInput = useCallback(() => {
@@ -154,64 +158,73 @@ export function Terminal() {
     [cmdHistory, cwd, historyIdx, input, inputDraft, submit],
   )
 
-  const promptPath = displayPath(cwd)
-
   return (
     <div
       ref={containerRef}
       onClick={focusInput}
       className="flex flex-col h-full cursor-text overflow-hidden"
-      style={{ background: '#1e1e2e' }}
+      style={{ background: '#1e1e2e', color: C.text }}
     >
       {/* Scrollable output area */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-0.5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#45475a #1e1e2e' }}>
-        {/* Boot banner */}
-        <div className="mb-4">
-          {BOOT_LINES.map((l, i) => (
-            <TerminalLine key={i} line={l} />
-          ))}
-        </div>
-
-        {/* History */}
-        {history.map((entry, i) => (
-          <div key={i}>
-            {entry.command !== '' && (
-              <Prompt cwd={entry.cwd} value={entry.command} />
-            )}
-            {entry.output.map((l, j) => (
-              <TerminalLine key={j} line={l} />
-            ))}
-          </div>
-        ))}
-
-        <div ref={bottomRef} />
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-0.5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#45475a #1e1e2e' }}>
+        <TerminalOutput history={history} />
       </div>
 
       {/* Input row */}
       <div className="px-4 pb-4 flex items-center gap-0 shrink-0">
         <PromptLabel cwd={cwd} />
-        <input
-          ref={inputRef}
-          autoFocus
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent border-none outline-none font-mono text-sm caret-transparent"
-          style={{ color: C.text }}
-          spellCheck={false}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-        />
-        {/* Custom blinking cursor */}
-        <span
-          className="inline-block w-[8px] h-[16px] ml-[-2px] animate-blink"
-          style={{ background: C.green, verticalAlign: 'text-bottom' }}
-        />
+        <div className="flex-1 relative">
+          <input
+            ref={inputRef}
+            autoFocus
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="absolute inset-0 w-full bg-transparent border-none outline-none font-mono text-sm caret-transparent opacity-0"
+            spellCheck={false}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+          />
+          <div className="flex items-center font-mono text-sm pointer-events-none select-none" aria-hidden>
+            <span style={{ color: C.text }} className="whitespace-pre">{input}</span>
+            <span
+              className="inline-block w-[8px] h-[16px] animate-blink"
+              style={{ background: C.green, verticalAlign: 'text-bottom' }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )
 }
+
+// Memoized so typing in the input (which re-renders Terminal on every keystroke)
+// does not reconcile the entire scrollback. `history` only changes on submit.
+const TerminalOutput = memo(function TerminalOutput({ history }: { history: HistoryEntry[] }) {
+  return (
+    <>
+      {/* Boot banner */}
+      <div className="mb-4">
+        {BOOT_LINES.map((l, i) => (
+          <TerminalLine key={i} line={l} />
+        ))}
+      </div>
+
+      {/* History */}
+      {history.map((entry, i) => (
+        <div key={i}>
+          {entry.command !== '' && (
+            <Prompt cwd={entry.cwd} value={entry.command} />
+          )}
+          {entry.output.map((l, j) => (
+            <TerminalLine key={j} line={l} />
+          ))}
+        </div>
+      ))}
+    </>
+  )
+})
 
 function PromptLabel({ cwd }: { cwd: string }) {
   const path = displayPath(cwd)
