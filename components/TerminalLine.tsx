@@ -5,15 +5,17 @@ import type { OutputLine } from '@/lib/terminal/types'
 
 interface Props {
   line: OutputLine
+  /** Allow long lines to wrap instead of clipping (used for prose like the boot text). */
+  wrap?: boolean
 }
 
-export const TerminalLine = memo(function TerminalLine({ line }: Props) {
+export const TerminalLine = memo(function TerminalLine({ line, wrap = false }: Props) {
   if (line.length === 0 || (line.length === 1 && line[0].text === '')) {
     return <div className="min-h-[1.5em]" />
   }
 
   return (
-    <div className="font-mono text-sm leading-relaxed whitespace-pre">
+    <div className={`font-mono text-sm leading-relaxed ${wrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'}`}>
       {line.map((seg, i) => {
         const style: React.CSSProperties = {}
         if (seg.color) style.color = seg.color

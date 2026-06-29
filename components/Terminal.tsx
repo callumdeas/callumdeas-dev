@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { HistoryEntry, OutputLine } from '@/lib/terminal/types'
 import { executeCommand } from '@/lib/terminal/commands'
 import { displayPath, getCompletions, HOME } from '@/lib/terminal/filesystem'
@@ -15,13 +15,27 @@ const C = {
   overlay: '#9399b2',
 }
 
-const BOOT_LINES: OutputLine[] = [
+// Full-width banner — shown on desktop / wide viewports.
+const BANNER_FULL: OutputLine[] = [
   [{ text: '           _ _                     _                     _', color: C.mauve }],
   [{ text: '          | | |                   | |                   | |', color: C.mauve }],
   [{ text: '  ___ __ _| | |_   _ _ __ ___   __| | ___  __ _ ___   __| | _____   __', color: C.mauve }],
   [{ text: " / __/ _` | | | | | | '_ ` _ \\ / _` |/ _ \\/ _` / __| / _` |/ _ \\ \\ / /", color: C.blue }],
   [{ text: '| (_| (_| | | | |_| | | | | | | (_| |  __/ (_| \\__ \\| (_| |  __/\\ V /', color: C.blue }],
   [{ text: ' \\___\\__,_|_|_|\\__,_|_| |_| |_|\\__,_|\\___|\\__,_|___(_)__,_|\\___| \\_/', color: C.blue }],
+]
+
+// Compact banner (~41 cols) — shown on mobile / narrow viewports so the art
+// doesn't overflow and clip on the right.
+const BANNER_COMPACT: { text: string; color: string }[] = [
+  { text: '         _ _               _', color: C.mauve },
+  { text: ' __ __ _| | |_  _ _ __  __| |___ __ _ ___', color: C.blue },
+  { text: "/ _/ _` | | | || | '  \\/ _` / -_) _` (_-<", color: C.blue },
+  { text: '\\__\\__,_|_|_|\\_,_|_|_|_\\__,_\\___\\__,_/__/', color: C.blue },
+]
+
+// Text that follows the banner — wraps gracefully on narrow screens.
+const BOOT_TEXT: OutputLine[] = [
   [{ text: '' }],
   [{ text: ' callumdeas.dev', color: C.mauve, bold: true }, { text: '  —  Personal Terminal', color: C.dim }],
   [{ text: '' }],
@@ -48,8 +62,40 @@ export function Terminal() {
     if (el) el.scrollTop = el.scrollHeight
   }, [history])
 
+  // Keyboard avoidance: track the visual viewport so the app shrinks to the
+  // area the soft keyboard leaves visible, keeping the input row on screen.
+  // (On iOS the layout viewport doesn't change when the keyboard opens, so
+  // plain vh/dvh-based heights would hide the prompt behind it.)
+  useEffect(() => {
+    const vv = window.visualViewport
+    const root = document.documentElement
+    const apply = () => {
+      const h = vv ? vv.height : window.innerHeight
+      root.style.setProperty('--app-height', `${Math.round(h)}px`)
+    }
+    apply()
+    vv?.addEventListener('resize', apply)
+    vv?.addEventListener('scroll', apply)
+    window.addEventListener('resize', apply)
+    return () => {
+      vv?.removeEventListener('resize', apply)
+      vv?.removeEventListener('scroll', apply)
+      window.removeEventListener('resize', apply)
+    }
+  }, [])
+
   const focusInput = useCallback(() => {
     inputRef.current?.focus()
+  }, [])
+
+  // After the keyboard finishes animating in, make sure the latest output and
+  // the prompt are scrolled into view above it.
+  const handleFocus = useCallback(() => {
+    setTimeout(() => {
+      const el = scrollRef.current
+      if (el) el.scrollTop = el.scrollHeight
+      inputRef.current?.scrollIntoView({ block: 'nearest' })
+    }, 300)
   }, [])
 
   const submit = useCallback(() => {
@@ -180,6 +226,7 @@ export function Terminal() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={handleFocus}
             className="absolute inset-0 w-full bg-transparent border-none outline-none font-mono text-sm caret-transparent opacity-0"
             spellCheck={false}
             autoComplete="off"
@@ -206,8 +253,26 @@ const TerminalOutput = memo(function TerminalOutput({ history }: { history: Hist
     <>
       {/* Boot banner */}
       <div className="mb-4">
-        {BOOT_LINES.map((l, i) => (
-          <TerminalLine key={i} line={l} />
+        {/* Full art — wide screens */}
+        <div className="hidden sm:block">
+          {BANNER_FULL.map((l, i) => (
+            <TerminalLine key={i} line={l} />
+          ))}
+        </div>
+        {/* Compact art — narrow screens. Font scales with the viewport so it
+            never overflows, capped at the normal size on larger phones. */}
+        <div
+          className="sm:hidden font-mono leading-tight whitespace-pre"
+          style={{ fontSize: 'clamp(8px, 2.7vw, 13px)' }}
+        >
+          {BANNER_COMPACT.map((l, i) => (
+            <div key={i} style={{ color: l.color }}>
+              {l.text || ' '}
+            </div>
+          ))}
+        </div>
+        {BOOT_TEXT.map((l, i) => (
+          <TerminalLine key={i} line={l} wrap />
         ))}
       </div>
 
