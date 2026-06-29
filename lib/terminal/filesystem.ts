@@ -169,34 +169,43 @@ but I lean frontend-first.
                   children: {
                     'README.md': {
                       type: 'file',
-                      content: `# wt
-   Git worktree manager
+                      content: `# wt (doubleut)
+   Git worktree manager for bare-repo workflows
 
 ## About
 
-   wt (short for doubleut) is a CLI tool for managing git worktrees.
-   Worktrees let you check out multiple branches simultaneously in
-   separate directories — wt makes creating, switching, and cleaning
-   them up fast and ergonomic.
+   wt is a CLI tool that simplifies creating, navigating, and managing
+   git worktrees using a bare-repo structure. Clone repos into bare
+   worktree setups, switch between isolated branch directories, and
+   keep your workspace tidy — all from a single command.
+
+   Available as both \`wt\` and \`doubleut\` on npm.
 
 ## Features
 
-   - Create and switch worktrees with a single command
-   - List all active worktrees with branch and path info
-   - Remove worktrees safely with branch cleanup
-   - Fuzzy-pick worktrees interactively
+   - Clone repos into bare worktree structures or convert existing clones
+   - Create, list, remove, and navigate worktrees
+   - Editor integration: VS Code, Cursor, Vim, Neovim, Zed
+   - Shared .code-workspace files for multi-root editing
+   - Dev server startup with pre-configured cleanup
+   - Registry for managing multiple bare repos
+   - GitHub integration: find merged PRs and remove their worktrees
 
 ## Tech Stack
 
-   Runtime       Node.js + TypeScript
-   CLI           Commander.js
-   Interactivity Inquirer
+   Runtime       Node.js 22+, TypeScript (ESM)
+   CLI           Commander
+   Prompts       @inquirer/prompts
+   UI            picocolors · ora
+   Testing       Jest + ts-jest
+   Tooling       ESLint · Prettier · Husky
 
-## Source
+## Install
 
+   → npmjs.com/package/doubleut
    → github.com/callumdeas/wt
 
-   Open source.
+   MIT licence. Open source.
 `,
                     },
                   },
