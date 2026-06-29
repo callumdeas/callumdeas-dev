@@ -15,7 +15,7 @@ export const TerminalLine = memo(function TerminalLine({ line, wrap = false }: P
   }
 
   return (
-    <div className={`font-mono text-sm leading-relaxed ${wrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'}`}>
+    <div className={`font-mono text-sm leading-relaxed ${wrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre-wrap break-words sm:whitespace-pre sm:break-normal'}`}>
       {line.map((seg, i) => {
         const style: React.CSSProperties = {}
         if (seg.color) style.color = seg.color
