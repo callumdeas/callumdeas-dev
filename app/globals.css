@@ -23,6 +23,13 @@ html, body, #__next {
   padding: 0;
 }
 
+/* Keep the app pinned to the visual viewport; the soft keyboard is handled by
+   the --app-height variable rather than letting the page scroll behind it. */
+html, body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* Catppuccin Mocha scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

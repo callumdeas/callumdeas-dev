@@ -3,8 +3,8 @@ import { TerminalFrame } from '@/components/TerminalFrame'
 export default function Home() {
   return (
     <main
-      className="h-full flex items-center justify-center p-4 sm:p-8"
-      style={{ background: '#11111b' }}
+      className="flex items-center justify-center p-4 sm:p-8 overflow-hidden"
+      style={{ background: '#11111b', height: 'var(--app-height, 100dvh)' }}
     >
       {/* Ambient glow */}
       <div
