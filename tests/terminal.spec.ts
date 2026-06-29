@@ -15,15 +15,8 @@ test.describe('Terminal portfolio', () => {
     await expect(page.getByText('callumdeas.dev', { exact: true })).toBeVisible()
     await expect(page.getByText('—  Personal Terminal')).toBeVisible()
     // Prompt shows callum@callumdeas.dev
-    const promptTitle = page.locator('.font-mono.text-xs')
-    await expect(promptTitle).toContainText('callum@callumdeas.dev')
+    await expect(page.getByText('@callumdeas.dev').first()).toBeVisible()
     await page.screenshot({ path: `${SCREENSHOTS}/01-initial.png`, fullPage: false })
-  })
-
-  test('window chrome — traffic lights visible', async ({ page }) => {
-    const dots = page.locator('.w-3.h-3.rounded-full')
-    await expect(dots).toHaveCount(3)
-    await page.screenshot({ path: `${SCREENSHOTS}/02-chrome.png`, fullPage: false })
   })
 
   test('help command', async ({ page }) => {

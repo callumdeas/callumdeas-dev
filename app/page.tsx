@@ -3,17 +3,10 @@ import { TerminalFrame } from '@/components/TerminalFrame'
 export default function Home() {
   return (
     <main
-      className="flex items-center justify-center p-4 sm:p-8 overflow-hidden"
-      style={{ background: '#11111b', height: 'var(--app-height, 100dvh)' }}
+      className="flex overflow-hidden"
+      style={{ background: '#1e1e2e', height: 'var(--app-height, 100dvh)' }}
     >
-      {/* Ambient glow */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(ellipse 80% 60% at 50% 40%, rgba(137,180,250,0.06) 0%, transparent 70%)',
-        }}
-      />
-      <div className="relative w-full max-w-5xl h-full max-h-[85vh] flex flex-col">
+      <div className="relative w-full h-full flex flex-col">
         <TerminalFrame />
       </div>
     </main>
