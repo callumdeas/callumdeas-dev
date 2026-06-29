@@ -164,6 +164,83 @@ but I lean frontend-first.
                     },
                   },
                 },
+                wt: {
+                  type: 'dir',
+                  children: {
+                    'README.md': {
+                      type: 'file',
+                      content: `# wt
+   Git worktree manager
+
+## About
+
+   wt (short for doubleut) is a CLI tool for managing git worktrees.
+   Worktrees let you check out multiple branches simultaneously in
+   separate directories — wt makes creating, switching, and cleaning
+   them up fast and ergonomic.
+
+## Features
+
+   - Create and switch worktrees with a single command
+   - List all active worktrees with branch and path info
+   - Remove worktrees safely with branch cleanup
+   - Fuzzy-pick worktrees interactively
+
+## Tech Stack
+
+   Runtime       Node.js + TypeScript
+   CLI           Commander.js
+   Interactivity Inquirer
+
+## Source
+
+   → github.com/callumdeas/wt
+
+   Open source.
+`,
+                    },
+                  },
+                },
+                knotless: {
+                  type: 'dir',
+                  children: {
+                    'README.md': {
+                      type: 'file',
+                      content: `# Knotless
+   Bridal CRM platform
+
+## About
+
+   Knotless is a CRM built specifically for bridal boutiques and wedding
+   dress retailers. It centralises client records, appointment scheduling,
+   order tracking, and follow-ups — replacing scattered spreadsheets and
+   generic tools with something purpose-built for the industry.
+
+## Features
+
+   - Client profiles with measurements, notes, and order history
+   - Appointment scheduling with automated reminders
+   - Order and alterations tracking through to collection
+   - Follow-up workflows and communication logs
+   - Dashboard overview of upcoming appointments and orders
+
+## Tech Stack
+
+   Framework     Next.js + TypeScript
+   Database      Supabase (PostgreSQL)
+   Auth          Supabase Auth
+   UI            Tailwind CSS + shadcn/ui
+   Infra         Railway
+
+## Visit
+
+   → knotless.co.uk
+
+   Private repository.
+`,
+                    },
+                  },
+                },
               },
             },
           },
