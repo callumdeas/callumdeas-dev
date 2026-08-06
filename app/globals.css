@@ -4,15 +4,6 @@
   --font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
 }
 
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.animate-blink {
-  animation: blink 1.2s step-end infinite;
-}
-
 * {
   box-sizing: border-box;
 }

@@ -10,10 +10,10 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'Callum Deas',
-  description: 'Software developer based in Scotland. Personal terminal — explore my projects and experience.',
+  description: 'Software developer based in Scotland, building web applications, tools and interactive experiences. Site coming soon.',
   openGraph: {
     title: 'Callum Deas',
-    description: 'Software developer based in Scotland.',
+    description: 'Software developer based in Scotland. Site coming soon.',
     url: 'https://callumdeas.dev',
     siteName: 'callumdeas.dev',
   },
