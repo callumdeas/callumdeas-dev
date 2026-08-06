@@ -43,10 +43,11 @@ export default function Home() {
             interfaces, real-time systems and AI integrations.
           </p>
           <p>
-            I run <span style={{ color: '#cdd6f4' }}>Elements Development</span>, building digital
-            products for clients across hospitality, health and beauty, and events. Outside of that
-            I ship personal projects — a real-time multiplayer party game and an AI meal planner
-            being the current two.
+            Most of my work is client projects across hospitality, health and beauty, and events.
+            I&apos;m also building <span style={{ color: '#cdd6f4' }}>Knotless</span>, a booking,
+            proposal and client management platform for wedding and event professionals. Outside of
+            that I ship personal projects — a real-time multiplayer party game and an AI meal
+            planner being the current two.
           </p>
           <p>
             A proper site is on the way. In the meantime, the best way to reach me is email.
