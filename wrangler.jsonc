@@ -4,9 +4,8 @@
 //   pnpm preview   → build, serve locally with wrangler dev (http://localhost:8787)
 //   pnpm deploy:cf → build and deploy to callumdeas-dev.<subdomain>.workers.dev
 //
-// No routes / custom domains yet: callumdeas.dev is still served by Railway.
-// Cutover = add `"routes": [{ "pattern": "www.callumdeas.dev", "custom_domain": true }]`
-// (and the apex, or keep the apex → www redirect) once DNS is ready.
+// www.callumdeas.dev is served through a zone route: the www DNS record is proxied (its
+// old Railway CNAME target is never reached). The apex 301s to www at the zone edge.
 //
 // NO .env FILES IN THE BUNDLE. OpenNext copies every .env* value it finds at
 // build time into the Worker; scripts/cf-build.mjs empties that copy and fails
@@ -19,6 +18,7 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": true,
+  "routes": [{ "pattern": "www.callumdeas.dev/*", "zone_name": "callumdeas.dev" }],
   "preview_urls": false,
   "observability": { "enabled": true },
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" }
