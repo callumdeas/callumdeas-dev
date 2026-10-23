@@ -8,7 +8,7 @@ const LINKS = [
   },
 ]
 
-const STACK = ['TypeScript', 'React', 'Next.js', 'Node.js', 'PostgreSQL', 'Tailwind CSS', 'Railway']
+const STACK = ['TypeScript', 'React', 'Next.js', 'Node.js', 'PostgreSQL', 'Tailwind CSS', 'Cloudflare']
 
 export default function Home() {
   return (
