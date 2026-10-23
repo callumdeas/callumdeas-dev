@@ -1,6 +1,6 @@
 # callumdeas.dev
 
-Placeholder "coming soon" page for [callumdeas.dev](https://callumdeas.dev) — Next.js + Tailwind, deployed on Railway.
+Placeholder "coming soon" page for [callumdeas.dev](https://callumdeas.dev) — Next.js + Tailwind, deployed on Cloudflare Workers via OpenNext.
 
 ## Development
 
