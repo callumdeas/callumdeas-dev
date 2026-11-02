@@ -46,8 +46,19 @@ export default function Home() {
             Most of my work is client projects across hospitality, health and beauty, and events.
             I&apos;m also building <span style={{ color: '#cdd6f4' }}>Knotless</span>, a booking,
             proposal and client management platform for wedding and event professionals. Outside of
-            that I ship personal projects — a real-time multiplayer party game and an AI meal
-            planner being the current two.
+            that I ship personal projects — a real-time multiplayer party game, an AI meal planner,
+            and{' '}
+            <a
+              href="https://github.com/callumdeas/macbelt-releases/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-4 transition-colors hover:opacity-80"
+              style={{ color: '#cdd6f4', textDecorationColor: '#45475a' }}
+            >
+              Macbelt
+            </a>
+            , a native macOS menu-bar app for clipboard history, screenshots, annotation and screen
+            recording.
           </p>
           <p>
             A proper site is on the way. In the meantime, the best way to reach me is email.
