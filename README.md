@@ -11,7 +11,7 @@ pnpm install
 pnpm dev            # http://localhost:4317
 ```
 
-Append `?debug` for review tools: `T` time panel (scrub, fast-forward, seasons), `[` `]` ±1 hour, `,` `.` ±1 month, `R` render resolution, `C` scanlines, `H` hide UI. `?text` forces the text version.
+Append `?debug` for review tools: `T` time panel (scrub, fast-forward, jump to festivals and seasons, override the weather), `[` `]` ±1 hour, `,` `.` ±1 month, `R` render resolution, `C` scanlines, `H` hide UI. `?text` forces the text version. `?weather=rain` (clear, cloudy, overcast, fog, drizzle, rain, snow, storm) forces the weather. Under `?debug` every analytics event is logged to the console.
 
 ## How it's put together
 
@@ -20,6 +20,10 @@ Append `?debug` for review tools: `T` time panel (scrub, fast-forward, seasons),
 - `app/_planet/_lib/ps1.ts`: PS1 look (vertex snapping, affine texture warp) and the dither/quantise post pass; `_world/Pipeline.tsx` renders at 480p and upscales.
 - `app/_planet/_lib/sky.ts` + `environment.ts`: real sun/moon positions and moon phase for the visitor's time and (timezone-estimated) location; lighting is keyed to sun elevation.
 - `app/_planet/_world/CameraRig.tsx`: the planet spins under a fixed camera (free drag, flights to each place, explore mode follow).
+- `app/_planet/_lib/seasons.ts` + `_world/Seasonal.tsx`: seasons (by hemisphere) and festivals: Halloween, Bonfire Night, Christmas, Hogmanay, Callum's birthday (26 Apr) and anniversary (25 May), with fireworks after dark.
+- `app/api/weather` + `_lib/weather.ts` + `_world/Weather.tsx`: live weather at the visitor's coarse location (Cloudflare geo → Open-Meteo, no key) drives cloud, fog, rain, snow and storms.
+- `app/api/enquiry` + `app/_lib/EnquiryForm.tsx`: the Post Office contact form, sent with Resend (see Secrets).
+- `app/_lib/analytics.ts`: PostHog, cookieless, lazy-loaded, proxied through `/ingest`. Off until `POSTHOG_KEY` is set in `app/_lib/analytics-config.ts`.
 - `app/_planet/_lib/sound.ts`: all audio is synthesised with Web Audio; muted by default.
 
 ## 3D assets (Blender)
@@ -32,6 +36,10 @@ pnpm assets:landmarks   # scripts/blender/landmarks.py → public/models/landmar
 ```
 
 Requires Blender 4.5 at `/Applications/Blender.app`. Landmark materials are named in Blender and mapped to the site's PS1 materials at runtime (`_world/Landmarks.tsx`); empties named `glow_*`, `smoke_*`, `anchor_knot` and `spin_*` mark runtime effects.
+
+## Secrets
+
+- `RESEND_API_KEY`: `wrangler secret put RESEND_API_KEY`. callumdeas.dev must be a verified sending domain in Resend (letters come from `post@callumdeas.dev`). For `pnpm preview`, put it in `.dev.vars` (git-ignored). Without it, the form offers a prefilled email instead.
 
 ## Deploy
 

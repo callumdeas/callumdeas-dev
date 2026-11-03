@@ -6,7 +6,7 @@ export const SEA_LEVEL = PLANET_RADIUS
 const PLATEAU = PLANET_RADIUS + 0.45
 const PATH_HEIGHT = PLANET_RADIUS + 0.24
 
-export type LandmarkId = 'chapel' | 'workshop' | 'arcade' | 'farmhouse' | 'highstreet' | 'stadium'
+export type LandmarkId = 'chapel' | 'workshop' | 'arcade' | 'farmhouse' | 'highstreet' | 'stadium' | 'postoffice'
 
 export type Landmark = {
   id: LandmarkId
@@ -77,6 +77,15 @@ export const LANDMARKS: readonly Landmark[] = [
     pad: 0.27,
     yaw: 2.3,
   },
+  {
+    id: 'postoffice',
+    title: 'The Post Office',
+    project: 'Say hello',
+    blurb: 'Send Callum a letter about a project',
+    dir: v(-0.7, 0.6, -0.4),
+    pad: 0.17,
+    yaw: 0,
+  },
 ]
 
 const byId = (id: LandmarkId): THREE.Vector3 => {
@@ -93,6 +102,8 @@ export const PATHS: ReadonlyArray<readonly [THREE.Vector3, THREE.Vector3]> = [
   [byId('farmhouse'), byId('arcade')],
   [byId('farmhouse'), byId('stadium')],
   [byId('highstreet'), byId('stadium')],
+  [byId('postoffice'), byId('chapel')],
+  [byId('postoffice'), byId('arcade')],
 ]
 
 const scratchN = new THREE.Vector3()

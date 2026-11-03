@@ -4,8 +4,13 @@ export type ProjectLink = { label: string; href: string }
 
 export type Client = { name: string; href: string; blurb: string }
 
+/** Every landmark except the post office is a project. */
+export type ProjectId = Exclude<LandmarkId, 'postoffice'>
+
+export const isProjectId = (id: LandmarkId): id is ProjectId => id !== 'postoffice'
+
 export type Project = {
-  id: LandmarkId
+  id: ProjectId
   /** In-world place name. */
   place: string
   name: string
@@ -169,7 +174,7 @@ export const ABOUT = {
   ],
 }
 
-export function projectById(id: LandmarkId): Project {
+export function projectById(id: ProjectId): Project {
   const p = PROJECTS.find((x) => x.id === id)
   if (!p) throw new Error(`No project for ${id}`)
   return p

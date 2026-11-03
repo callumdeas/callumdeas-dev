@@ -7,7 +7,6 @@ import * as THREE from 'three'
 import { disposePalette, makePalette, type Palette } from '../_lib/assets'
 import { env, lightsOn } from '../_lib/environment'
 import { LANDMARKS, surfaceFrame, type LandmarkId } from '../_lib/planet'
-import { projectById } from '../_lib/projects'
 import { season } from '../_lib/seasons'
 import { Glow, type GlowKind } from './Glow'
 import { Marker, useInteraction, usePickable } from './interaction'
@@ -26,6 +25,7 @@ const MARKER_HEIGHT: Record<LandmarkId, number> = {
   farmhouse: 2.7,
   highstreet: 2.6,
   stadium: 3.6,
+  postoffice: 2.9,
 }
 
 /** Invisible, generous click targets so small buildings are easy to pick. */
@@ -36,6 +36,7 @@ const HITBOX: Record<LandmarkId, { size: V3; y: number }> = {
   farmhouse: { size: [3.4, 2.4, 3.6], y: 0.9 },
   highstreet: { size: [5.6, 2.4, 2.6], y: 0.9 },
   stadium: { size: [4.2, 2.8, 3.8], y: 1.0 },
+  postoffice: { size: [2.8, 2.6, 2.4], y: 1.0 },
 }
 const hitMaterial = new THREE.MeshBasicMaterial({ visible: false })
 
@@ -45,7 +46,6 @@ function Site({ id, children }: { id: LandmarkId; children: ReactNode }) {
   const { hovered, selection, select } = useInteraction()
   const pick = useCallback(() => select({ kind: 'landmark', id }), [select, id])
   const handlers = usePickable(id, pick)
-  const project = projectById(id)
   if (!frame || !lm) return null
   return (
     <group position={frame.position} quaternion={frame.quaternion}>
@@ -57,7 +57,7 @@ function Site({ id, children }: { id: LandmarkId; children: ReactNode }) {
       </group>
       <Marker
         height={MARKER_HEIGHT[id]}
-        label={project.name.toUpperCase()}
+        label={lm.project.toUpperCase()}
         sub={lm.title}
         hovered={hovered === id}
         hidden={selection !== null}
@@ -157,6 +157,8 @@ function materialFor(name: string, m: Palette): THREE.Material {
     SeatBlue: m.seatBlue,
     SeatWhite: m.seatWhite,
     Scoreboard: m.scoreboard,
+    PostRed: m.postRed,
+    PostSign: m.postSign,
   }
   return table[name] ?? m.dark
 }
@@ -255,6 +257,7 @@ function driveLights(m: Palette, t: number) {
   setEmissive(m.scoreboard, 0.8 + 0.8 * env.night)
   // Shop signs get a soft night-time backlight.
   for (const sign of m.shopSigns) setEmissive(sign, 0.55 * lightsOn(0))
+  setEmissive(m.postSign, 0.55 * lightsOn(0))
   // Arcade neon: always on, brighter at night, with the odd flicker.
   const neon = 0.3 + 0.7 * env.night
   const flick = Math.sin(t * 23) > 0.92 || Math.sin(t * 3.1) > 0.995 ? 0.4 : 2.2

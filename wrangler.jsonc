@@ -9,8 +9,12 @@
 //
 // NO .env FILES IN THE BUNDLE. OpenNext copies every .env* value it finds at
 // build time into the Worker; scripts/cf-build.mjs empties that copy and fails
-// the build if any local .env value still appears in .open-next/. The site reads
-// no env vars at runtime; if it ever needs one, add it to `vars` here.
+// the build if any local .env value still appears in .open-next/.
+//
+// Runtime secrets (set with `wrangler secret put`, never in a file):
+//   RESEND_API_KEY  the post office (/api/enquiry). Without it the form falls
+//                   back to a prefilled mailto: link. Locally, put it in
+//                   .dev.vars for `pnpm preview`.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "callumdeas-dev",

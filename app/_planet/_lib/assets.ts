@@ -24,6 +24,7 @@ type Textures = {
   awnings: THREE.Texture[]
   shopSigns: THREE.Texture[]
   scoreboard: THREE.Texture
+  postSign: THREE.Texture
 }
 
 let cached: Textures | null = null
@@ -45,6 +46,7 @@ export function getTextures(): Textures {
     awnings: [stripeTexture('#f6efe8', '#c97a8a'), stripeTexture('#f6efe8', '#c9a25a'), stripeTexture('#f6efe8', '#8a6fb0')],
     shopSigns: SHOP_NAMES.map((name) => signTexture(name, '#f6e7d0', '#2b2230', 160, 20)),
     scoreboard: signTexture('HOME 2-1 AWAY', '#ffd36a', '#0c1016', 96, 24),
+    postSign: signTexture('POST OFFICE', '#ffe7a0', '#b8222a', 96, 12),
   }
   return cached
 }
@@ -91,6 +93,8 @@ export function makePalette() {
     scoreboard: ps1Material({ color: '#000000', emissive: '#ffffff', emissiveMap: t.scoreboard, emissiveIntensity: 1.2 }),
     shopSigns: t.shopSigns.map((map) => ps1Material({ color: '#ffffff', map, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: 0 })),
     soil: ps1Material({ color: '#5a3d2c' }),
+    postRed: ps1Material({ color: '#c8282c' }),
+    postSign: ps1Material({ color: '#ffffff', map: t.postSign, emissive: '#ffffff', emissiveMap: t.postSign, emissiveIntensity: 0 }),
     pumpkin: ps1Material({ color: '#e5782c' }),
     awnings: t.awnings.map((map) => ps1Material({ map })),
     facades: FACADES.map((color) => ps1Material({ color, map: t.plaster })),

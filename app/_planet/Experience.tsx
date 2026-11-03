@@ -6,7 +6,7 @@ import { setContext, track } from '../_lib/analytics'
 import { ART } from './_lib/art'
 import { clock, goLive, initEnvironment, setSimTime, setSpeed, simNow } from './_lib/environment'
 import { clearInput, isMoveKey, pressKey } from './_lib/input'
-import type { LandmarkId } from './_lib/planet'
+import { LANDMARKS, type LandmarkId } from './_lib/planet'
 import { PROJECTS, projectById } from './_lib/projects'
 import { sameSelection, type Selection } from './_lib/selection'
 import { Clouds, EnvironmentDriver, Fireflies, Lights, Moon, Sky, Stars, Sun } from './_world/Atmosphere'
@@ -40,7 +40,16 @@ const DEBUG = new URLSearchParams(window.location.search).has('debug')
 const TOUR: readonly Exclude<Selection, null>[] = [
   { kind: 'avatar' },
   ...PROJECTS.map((p): Exclude<Selection, null> => ({ kind: 'landmark', id: p.id })),
+  { kind: 'landmark', id: 'postoffice' },
 ]
+
+/** Places menu rows: [left label, right label]. */
+function placeLabels(t: Exclude<Selection, null>): [string, string] {
+  if (t.kind === 'avatar') return ['Say hi', 'About me']
+  if (t.id === 'postoffice') return ['Post Office', 'Get in touch']
+  const p = projectById(t.id)
+  return [p.place, p.name]
+}
 
 function useMedia(query: string) {
   const [match, setMatch] = useState(() => window.matchMedia(query).matches)
@@ -286,7 +295,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
     }
   }, [selection, exploring, near, step, selectVia, startExplore, stopExplore, toggleOutfit, toggleSound])
 
-  const nearProject = near ? projectById(near) : null
+  const nearPlace = near ? LANDMARKS.find((l) => l.id === near) ?? null : null
 
   return (
     <div className="fixed inset-0 overflow-hidden select-none" style={{ background: '#14233a' }}>
@@ -402,8 +411,8 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
             <Panel className="absolute top-16 right-4 px-4 py-3 text-lg leading-tight sm:right-6 md:top-6">
               <div className="mb-1 text-base opacity-60">PLACES</div>
               {TOUR.map((t) => {
-                const p = t.kind === 'landmark' ? PROJECTS.find((x) => x.id === t.id) : null
-                const key = p ? p.id : 'avatar'
+                const key = t.kind === 'landmark' ? t.id : 'avatar'
+                const [left, right] = placeLabels(t)
                 return (
                   <button
                     key={key}
@@ -417,8 +426,8 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
                     className="flex w-full cursor-pointer gap-3 text-left hover:opacity-80"
                   >
                     <span style={{ color: hovered === key ? '#fff' : ART.accent }}>&#9656;</span>
-                    <span className="w-32">{p ? p.place : 'Say hi'}</span>
-                    <span className="opacity-70">{p ? p.name : 'About me'}</span>
+                    <span className="w-32">{left}</span>
+                    <span className="opacity-70">{right}</span>
                   </button>
                 )
               })}
@@ -427,17 +436,17 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
 
           {!selection && !timeTools && (
             <div className="absolute inset-x-4 bottom-5 flex flex-col items-center gap-3 sm:bottom-6">
-              {exploring && nearProject && (
+              {exploring && nearPlace && (
                 <button
                   type="button"
                   onClick={() => {
                     clearInput()
-                    selectVia('explore', { kind: 'landmark', id: nearProject.id })
+                    selectVia('explore', { kind: 'landmark', id: nearPlace.id })
                   }}
                   className="pointer-events-auto cursor-pointer px-4 py-2 text-2xl leading-none"
                   style={{ background: ART.accent, color: '#120e1c', boxShadow: '4px 4px 0 rgba(0,0,0,0.5)' }}
                 >
-                  {touch ? 'TAP' : '[E]'} ENTER {nearProject.place.toUpperCase()}
+                  {touch ? 'TAP' : '[E]'} ENTER {nearPlace.title.toUpperCase()}
                 </button>
               )}
               <div className="flex flex-wrap items-center justify-center gap-3">
