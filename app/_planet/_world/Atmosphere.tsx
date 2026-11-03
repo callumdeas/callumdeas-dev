@@ -226,9 +226,9 @@ function keyDirection(dir: THREE.Vector3, camera: THREE.Camera, out: THREE.Vecto
 }
 
 function syncLights(hemi: THREE.HemisphereLight, sun: THREE.DirectionalLight, moon: THREE.DirectionalLight, camera: THREE.Camera) {
-  hemi.color.copy(env.colors.hemiSky)
+  hemi.color.copy(env.colors.hemiSky).lerp(env.flashColor, Math.min(1, env.flash * 0.6))
   hemi.groundColor.copy(env.colors.hemiGround)
-  hemi.intensity = env.hemi
+  hemi.intensity = env.hemi + env.flash
   sun.color.copy(env.colors.sunColor)
   sun.intensity = env.sunIntensity
   keyDirection(env.sunDir, camera, sun.position)

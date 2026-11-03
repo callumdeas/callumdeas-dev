@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { avatarFrame, avatarState } from '../_lib/avatarState'
 import { ps1Material } from '../_lib/ps1'
+import { season } from '../_lib/seasons'
 import { Marker, useInteraction, usePickable } from './interaction'
 
 export type Outfit = 'beanie' | 'cap'
@@ -30,6 +31,44 @@ function consumeWaveNow() {
 }
 
 const avatarHit = new THREE.MeshBasicMaterial({ visible: false })
+
+/** Top of the head in model space (glTF Y-up), just above the beanie/cap. */
+const HAT_BASE = new THREE.Vector3(0, 1.0, 0)
+
+/** A striped party hat for Callum's birthday, parented to the head bone so it follows the animation. */
+function makePartyHat() {
+  const hat = new THREE.Group()
+  hat.name = 'party-hat'
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.24, 6), ps1Material({ color: '#ff5a7a' }))
+  cone.position.y = 0.12
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.068, 0.04, 6), ps1Material({ color: '#ffd36a' }))
+  band.position.y = 0.06
+  const pom = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 0), ps1Material({ color: '#6ac8ff' }))
+  pom.position.y = 0.25
+  hat.add(cone, band, pom)
+  hat.rotation.z = 0.18
+  hat.visible = false
+  return hat
+}
+
+function showHat(hat: THREE.Object3D) {
+  hat.visible = season.festival === 'birthday'
+}
+
+/** Attach the hat to the head bone, converting its rest-pose model position into bone space. */
+function attachHat(scene: THREE.Object3D, hat: THREE.Object3D) {
+  const head = scene.getObjectByName('head')
+  if (!head) return () => {}
+  scene.updateMatrixWorld(true)
+  const world = scene.localToWorld(HAT_BASE.clone())
+  head.add(hat)
+  hat.position.copy(head.worldToLocal(world))
+  const headQ = head.getWorldQuaternion(new THREE.Quaternion()).invert()
+  hat.quaternion.copy(headQ.multiply(scene.getWorldQuaternion(new THREE.Quaternion()))).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0.18))
+  return () => {
+    head.remove(hat)
+  }
+}
 
 function placeAvatar(g: THREE.Group) {
   const f = avatarFrame()
@@ -63,6 +102,9 @@ export function Avatar({ outfit, onSecretTaps }: { outfit: Outfit; onSecretTaps:
     applyPS1Materials(scene, materials.body, materials.lens)
   }, [scene, materials])
 
+  const hat = useMemo(() => makePartyHat(), [])
+  useEffect(() => attachHat(scene, hat), [scene, hat])
+
   const { hovered, selection, select } = useInteraction()
   const taps = useRef<number[]>([])
   const pick = useCallback(() => {
@@ -86,6 +128,7 @@ export function Avatar({ outfit, onSecretTaps }: { outfit: Outfit; onSecretTaps:
     if (consumeWaveNow()) nextWave.current = t
     const root = placement.current
     if (root) placeAvatar(root)
+    showHat(hat)
     let want: AvatarClip = avatarState.moving ? 'walk' : avatarControl.clip
     if (want === 'idle' && avatarControl.autoWave && !avatarControl.exploring) {
       if (t > nextWave.current + 2.2) nextWave.current = t + 8 + Math.random() * 6

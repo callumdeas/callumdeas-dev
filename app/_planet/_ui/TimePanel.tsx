@@ -3,12 +3,25 @@
 import { useEffect, useState } from 'react'
 import { ART } from '../_lib/art'
 import { clock, env, goLive, setSimTime, setSpeed, simNow } from '../_lib/environment'
+import { FESTIVAL_LABEL, presetTime, season, type Preset } from '../_lib/seasons'
 import { phaseName } from '../_lib/sky'
 import { Panel, RetroButton } from './retro'
 
 export const SPEEDS: readonly number[] = [60, 600, 3600]
 export const MINUTE = 60_000
 export const DAY = 86_400_000
+
+const PRESETS: readonly [Preset, string][] = [
+  ['bonfire', 'BONFIRE'],
+  ['newyear', 'HOGMANAY'],
+  ['halloween', 'HALLOWEEN'],
+  ['birthday', 'BIRTHDAY'],
+  ['anniversary', 'ANNIV.'],
+  ['winter', 'WINTER'],
+  ['spring', 'SPRING'],
+  ['summer', 'SUMMER'],
+  ['autumn', 'AUTUMN'],
+]
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
@@ -38,6 +51,7 @@ export function ClockLine() {
     <div className="mt-1 text-lg leading-none opacity-80">
       {icon} {pad(now.getHours())}:{pad(now.getMinutes())} · {env.location.label.toUpperCase()}
       {!clock.live && <span style={{ color: ART.accent }}> · TIME TRAVEL</span>}
+      {season.festival && <div className="mt-1" style={{ color: ART.accent }}>★ {FESTIVAL_LABEL[season.festival]} ★</div>}
     </div>
   )
 }
@@ -105,6 +119,20 @@ export function TimePanel() {
           <RetroButton onClick={() => setSimTime(simNow() - 30 * DAY)}>‹ MONTH</RetroButton>
           <RetroButton onClick={() => setSimTime(simNow() + 30 * DAY)}>MONTH ›</RetroButton>
         </span>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-base opacity-60">JUMP</span>
+        {PRESETS.map(([preset, label]) => (
+          <RetroButton key={preset} onClick={() => setSimTime(presetTime(preset))}>
+            {label}
+          </RetroButton>
+        ))}
+      </div>
+      <div className="mt-1 text-base leading-none opacity-60">
+        {season.name.toUpperCase()}
+        {season.festival ? ` · ${FESTIVAL_LABEL[season.festival]}` : ''}
+        {season.fireworks > 0 ? ` · FIREWORKS ${Math.round(season.fireworks * 100)}%` : ''}
       </div>
     </Panel>
   )

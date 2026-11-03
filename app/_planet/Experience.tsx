@@ -2,6 +2,7 @@
 
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { setContext, track } from '../_lib/analytics'
 import { ART } from './_lib/art'
 import { clock, goLive, initEnvironment, setSimTime, setSpeed, simNow } from './_lib/environment'
 import { clearInput, isMoveKey, pressKey } from './_lib/input'
@@ -18,12 +19,14 @@ import { ExploreController } from './_world/Explore'
 import { FovFit } from './_world/FovFit'
 import { InteractionContext, type HoverTarget } from './_world/interaction'
 import { Landmarks } from './_world/Landmarks'
+import { Seasonal } from './_world/Seasonal'
 import { PS1Pipeline } from './_world/Pipeline'
 import { Lamps, Ocean, Planet, Rocks, Trees } from './_world/Terrain'
 import { InfoPanel } from './_ui/InfoPanel'
 import { Joystick } from './_ui/Joystick'
 import { Panel, RetroButton, pixelFont } from './_ui/retro'
 import { ClockLine, DAY, MINUTE, SPEEDS, TimePanel } from './_ui/TimePanel'
+import { season } from './_lib/seasons'
 
 // This module only ever loads in the browser (dynamic import, ssr: false).
 initEnvironment()
@@ -91,11 +94,21 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
   const height = RESOLUTIONS[resIndex]
   const exploring = mode === 'explore'
 
+  /** How the next selection was made, for analytics. Clicks in the world are the default. */
+  const via = useRef('click')
   const select = useCallback((next: Selection) => {
     setSelection((prev) => (sameSelection(prev, next) ? prev : next))
   }, [])
+  const selectVia = useCallback(
+    (how: string, next: Selection) => {
+      via.current = how
+      select(next)
+    },
+    [select],
+  )
 
   const step = useCallback((dir: 1 | -1) => {
+    via.current = 'tour'
     setSelection((prev) => {
       const i = TOUR.findIndex((t) => sameSelection(t, prev))
       return TOUR[(i + dir + TOUR.length) % TOUR.length]
@@ -105,8 +118,10 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
   const startExplore = useCallback(() => {
     setSelection(null)
     setMode('explore')
+    track('explore_started')
   }, [])
   const stopExplore = useCallback(() => {
+    if (avatarControl.exploring) track('explore_stopped')
     clearInput()
     setMode('orbit')
     setNear(null)
@@ -131,18 +146,31 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
     // Transition: keep the current avatar (and the buildings) on screen while the new GLB loads.
     startTransition(() => setOutfit(next))
     showToast(next === 'cap' ? '★ SECRET OUTFIT UNLOCKED ★' : 'BACK IN THE BEANIE')
+    track('secret_found', { secret: 'outfit', outfit: next })
   }, [outfit, showToast])
-  const foundCat = useCallback(() => showToast('YOU FOUND THE CAT! =^.^='), [showToast])
+  const foundCat = useCallback(() => {
+    showToast('YOU FOUND THE CAT! =^.^=')
+    track('secret_found', { secret: 'cat' })
+  }, [showToast])
   const wish = useCallback(() => {
     requestShootingStar()
     showToast('✦ MAKE A WISH ✦')
+    track('secret_found', { secret: 'wish' })
   }, [showToast])
+
+  // Season and festival ride along on every event.
+  useEffect(() => {
+    setContext({ season: season.name, festival: season.festival })
+  }, [])
 
   // UI sounds follow the selection.
   const prevSelection = useRef<Selection>(null)
   useEffect(() => {
-    if (selection && !sameSelection(selection, prevSelection.current)) sound.select()
-    else if (!selection && prevSelection.current) sound.back()
+    if (selection && !sameSelection(selection, prevSelection.current)) {
+      sound.select()
+      track('place_opened', { place: selection.kind === 'avatar' ? 'about' : selection.id, via: via.current })
+      via.current = 'click'
+    } else if (!selection && prevSelection.current) sound.back()
     prevSelection.current = selection
   }, [selection])
 
@@ -162,6 +190,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
   }, [])
 
   const toggleSound = useCallback(() => {
+    track('sound_toggled', { on: !sound.enabled })
     if (sound.enabled) {
       sound.disable()
       setSoundOn(false)
@@ -174,7 +203,9 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
 
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return
+      const el = e.target
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return
+      if (el instanceof HTMLElement && el.isContentEditable) return
       const k = e.key
       konami.current = [...konami.current, k.toLowerCase()].slice(-KONAMI.length)
       if (konami.current.join() === KONAMI.join()) {
@@ -194,7 +225,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
         }
         if ((k === 'e' || k === 'Enter') && near) {
           clearInput()
-          select({ kind: 'landmark', id: near })
+          selectVia('explore', { kind: 'landmark', id: near })
           return
         }
       }
@@ -226,7 +257,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
       window.removeEventListener('keyup', onUp)
       window.removeEventListener('blur', onBlur)
     }
-  }, [selection, exploring, near, step, select, startExplore, stopExplore, toggleOutfit, toggleSound])
+  }, [selection, exploring, near, step, selectVia, startExplore, stopExplore, toggleOutfit, toggleSound])
 
   const nearProject = near ? projectById(near) : null
 
@@ -271,6 +302,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
               </Suspense>
               <ReadySignal onReady={onReady} />
             </Suspense>
+            <Seasonal reducedMotion={reducedMotion} />
             <Clouds />
             <Fireflies />
           </CameraRig>
@@ -350,7 +382,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
                     type="button"
                     onClick={() => {
                       setMenu(false)
-                      select(t)
+                      selectVia('menu', t)
                     }}
                     onPointerEnter={() => setHovered(key)}
                     onPointerLeave={() => setHovered(null)}
@@ -372,7 +404,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
                   type="button"
                   onClick={() => {
                     clearInput()
-                    select({ kind: 'landmark', id: nearProject.id })
+                    selectVia('explore', { kind: 'landmark', id: nearProject.id })
                   }}
                   className="pointer-events-auto cursor-pointer px-4 py-2 text-2xl leading-none"
                   style={{ background: ART.accent, color: '#120e1c', boxShadow: '4px 4px 0 rgba(0,0,0,0.5)' }}
@@ -429,7 +461,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
               selection={selection}
               onClose={() => select(null)}
               onStep={step}
-              onSelect={select}
+              onSelect={(next) => selectVia('panel', next)}
               reducedMotion={reducedMotion}
             />
           )}

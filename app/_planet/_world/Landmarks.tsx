@@ -8,6 +8,7 @@ import { disposePalette, makePalette, type Palette } from '../_lib/assets'
 import { env, lightsOn } from '../_lib/environment'
 import { LANDMARKS, surfaceFrame, type LandmarkId } from '../_lib/planet'
 import { projectById } from '../_lib/projects'
+import { season } from '../_lib/seasons'
 import { Glow, type GlowKind } from './Glow'
 import { Marker, useInteraction, usePickable } from './interaction'
 
@@ -261,10 +262,30 @@ function driveLights(m: Palette, t: number) {
   setEmissive(m.neonCyan, (1.8 + Math.sin(t * 2) * 0.4) * neon)
 }
 
+const SNOW = new THREE.Color('#f2ecf2')
+const PUMPKIN_GLOW = new THREE.Color('#ff7a1a')
+
+/** Roofs whiten as snow settles; pumpkins become jack-o'-lanterns for Halloween. */
+function useSeasonalMaterials(m: Palette) {
+  const roofs = useMemo(
+    () => [m.roofRed, m.roofSlate, m.roofTeal].map((mat) => ({ mat, base: mat.color.clone() })),
+    [m],
+  )
+  useFrame(({ clock }) => driveSeasonal(m, roofs, clock.elapsedTime))
+}
+
+function driveSeasonal(m: Palette, roofs: { mat: THREE.MeshLambertMaterial; base: THREE.Color }[], t: number) {
+  for (const r of roofs) r.mat.color.copy(r.base).lerp(SNOW, env.snow * 0.8)
+  const lit = season.festival === 'halloween' ? lightsOn(0) : 0
+  m.pumpkin.emissive.set(PUMPKIN_GLOW)
+  m.pumpkin.emissiveIntensity = lit * (1.3 + Math.sin(t * 7) * 0.2)
+}
+
 export function Landmarks() {
   const palette = useMemo(() => makePalette(), [])
   useEffect(() => () => disposePalette(palette), [palette])
   useFrame(({ clock }) => driveLights(palette, clock.elapsedTime))
+  useSeasonalMaterials(palette)
   return (
     <>
       {LANDMARKS.map((lm) => (

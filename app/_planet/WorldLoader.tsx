@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { useCallback, useSyncExternalStore } from 'react'
+import { track } from '../_lib/analytics'
 
 // three.js stays out of the server/Worker bundle entirely.
 const Experience = dynamic(() => import('./Experience'), { ssr: false })
@@ -31,10 +32,12 @@ export default function WorldLoader() {
   const enabled = useSyncExternalStore(subscribeWorld, readWorld, () => false)
 
   const onReady = useCallback(() => {
+    track('world_ready', { ms: Math.round(performance.now()) })
     window.setTimeout(setBooted, Math.max(0, MIN_BOOT_MS - performance.now()))
   }, [])
 
   const onTextVersion = useCallback(() => {
+    track('text_version_opened', { via: 'button' })
     setWorld(false)
     const url = new URL(window.location.href)
     url.searchParams.set('text', '')

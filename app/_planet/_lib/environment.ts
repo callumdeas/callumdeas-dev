@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { smoothstep } from './noise'
+import { season, updateSeason } from './seasons'
 import { computeSky, guessLocation, type Location, type SkyState } from './sky'
 
 /**
@@ -173,6 +174,11 @@ export type Environment = {
   /** 0 by day → 1 at night; drives lamps, windows, fireflies. */
   night: number
   stars: number
+  /** 0..1 snow lying on the ground (festive dusting or real snowfall). */
+  snow: number
+  /** Brief extra fill light from firework bursts (and, later, lightning). Decays each frame. */
+  flash: number
+  flashColor: THREE.Color
 }
 
 export const env: Environment = {
@@ -192,6 +198,9 @@ export const env: Environment = {
   moonDir: new THREE.Vector3(0, 1, -1),
   night: 0,
   stars: 0,
+  snow: 0,
+  flash: 0,
+  flashColor: new THREE.Color('#ffffff'),
 }
 
 /**
@@ -209,6 +218,8 @@ function skyFrame(azimuth: number, elevation: number, out: THREE.Vector3) {
 export function updateEnvironment(time: number) {
   env.time = time
   env.sky = computeSky(time, env.location)
+  updateSeason(time, env.location.lat)
+  env.snow = season.festiveSnow
   const el = env.sky.sun.elevation
 
   const last = STOPS.length - 1
