@@ -1,0 +1,277 @@
+'use client'
+
+import { useLayoutEffect, useMemo, useRef } from 'react'
+import * as THREE from 'three'
+import { getTextures } from '../_lib/assets'
+import { mulberry32 } from '../_lib/noise'
+import {
+  PATHS,
+  PLANET_RADIUS,
+  SEA_LEVEL,
+  padDistance,
+  pathDistance,
+  pointOnArc,
+  surfaceFrame,
+  surfaceRadius,
+} from '../_lib/planet'
+import { ART } from '../_lib/art'
+import { env, lightsOn } from '../_lib/environment'
+import { useFrame } from '@react-three/fiber'
+import { ps1Material } from '../_lib/ps1'
+import { Glow } from './Glow'
+import { occluderHandlers } from './interaction'
+
+type FaceKind = 'seabed' | 'sand' | 'path' | 'rock' | 'snow' | 'grass'
+
+type PlanetData = {
+  geometry: THREE.BufferGeometry
+  faces: { kind: FaceKind; variant: number; shade: number }[]
+}
+
+function buildPlanet(): PlanetData {
+  const geometry = new THREE.IcosahedronGeometry(1, 22)
+  const pos = geometry.getAttribute('position')
+  const dir = new THREE.Vector3()
+  for (let i = 0; i < pos.count; i++) {
+    dir.fromBufferAttribute(pos, i).normalize()
+    const r = surfaceRadius(dir)
+    pos.setXYZ(i, dir.x * r, dir.y * r, dir.z * r)
+  }
+
+  const a = new THREE.Vector3()
+  const b = new THREE.Vector3()
+  const c = new THREE.Vector3()
+  const centroid = new THREE.Vector3()
+  const normal = new THREE.Vector3()
+  const rand = mulberry32(7)
+  const faces: PlanetData['faces'] = []
+
+  for (let i = 0; i < pos.count; i += 3) {
+    a.fromBufferAttribute(pos, i)
+    b.fromBufferAttribute(pos, i + 1)
+    c.fromBufferAttribute(pos, i + 2)
+    centroid.copy(a).add(b).add(c).divideScalar(3)
+    const h = centroid.length()
+    const radial = centroid.clone().normalize()
+    normal.subVectors(b, a).cross(c.clone().sub(a)).normalize()
+    const slope = 1 - Math.abs(normal.dot(radial))
+
+    let kind: FaceKind = 'grass'
+    if (h < SEA_LEVEL - 0.04) kind = 'seabed'
+    else if (h < SEA_LEVEL + 0.16) kind = 'sand'
+    else if (pathDistance(radial) < 0.045) kind = 'path'
+    else if (h > PLANET_RADIUS + 1.75) kind = 'snow'
+    else if (slope > 0.32 || h > PLANET_RADIUS + 1.2) kind = 'rock'
+
+    faces.push({ kind, variant: Math.floor(rand() * 4), shade: 0.95 + rand() * 0.1 })
+  }
+
+  geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(pos.count * 3), 3))
+  geometry.computeVertexNormals()
+  return { geometry, faces }
+}
+
+function paintPlanet(data: PlanetData) {
+  const colors = data.geometry.getAttribute('color')
+  const tmp = new THREE.Color()
+  const g = ART.ground
+  data.faces.forEach((face, f) => {
+    switch (face.kind) {
+      case 'seabed':
+        tmp.set(g.seabed)
+        break
+      case 'sand':
+        tmp.set(g.sand)
+        break
+      case 'path':
+        tmp.set(g.path)
+        break
+      case 'rock':
+        tmp.set(g.rock)
+        break
+      case 'snow':
+        tmp.set(g.snow)
+        break
+      case 'grass':
+        tmp.set(g.grass[face.variant % g.grass.length])
+        break
+    }
+    tmp.multiplyScalar(face.shade)
+    for (let k = 0; k < 3; k++) colors.setXYZ(f * 3 + k, tmp.r, tmp.g, tmp.b)
+  })
+  colors.needsUpdate = true
+}
+
+export function Planet() {
+  const data = useMemo(() => buildPlanet(), [])
+  const material = useMemo(() => ps1Material({ vertexColors: true, map: getTextures().grain }), [])
+  useLayoutEffect(() => paintPlanet(data), [data])
+  return <mesh geometry={data.geometry} material={material} {...occluderHandlers} />
+}
+
+function tintOcean(mat: THREE.MeshLambertMaterial) {
+  mat.color.copy(env.colors.ocean)
+}
+
+export function Ocean() {
+  const geometry = useMemo(() => new THREE.IcosahedronGeometry(SEA_LEVEL, 14), [])
+  const material = useMemo(
+    () => ps1Material({ color: '#41438f', transparent: true, opacity: 0.8, wobble: 0.05, depthWrite: false }),
+    [],
+  )
+  useFrame(() => tintOcean(material))
+  return <mesh geometry={geometry} material={material} renderOrder={1} />
+}
+
+type TreeInstance = { matrix: THREE.Matrix4; colorIndex: number; kind: 'pine' | 'round' }
+
+function scatterTrees(): TreeInstance[] {
+  const rand = mulberry32(42)
+  const trees: TreeInstance[] = []
+  const dir = new THREE.Vector3()
+  let attempts = 0
+  while (trees.length < 140 && attempts < 6000) {
+    attempts++
+    dir.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1)
+    if (dir.lengthSq() > 1 || dir.lengthSq() < 0.01) continue
+    dir.normalize()
+    const h = surfaceRadius(dir)
+    if (h < SEA_LEVEL + 0.2 || h > PLANET_RADIUS + 1.6) continue
+    if (padDistance(dir) < 0.05 || pathDistance(dir) < 0.07) continue
+    const { position, quaternion } = surfaceFrame(dir, rand() * Math.PI * 2, -0.05)
+    const s = 0.7 + rand() * 0.7
+    const matrix = new THREE.Matrix4().compose(position, quaternion, new THREE.Vector3(s, s * (0.9 + rand() * 0.5), s))
+    trees.push({ matrix, colorIndex: Math.floor(rand() * 5), kind: rand() < 0.55 ? 'pine' : 'round' })
+  }
+  return trees
+}
+
+/** Writes instance transforms (and optional palette colours) into an InstancedMesh. */
+function fillInstances(mesh: THREE.InstancedMesh | null, list: TreeInstance[], colors: readonly string[] | null) {
+  if (!mesh) return
+  const color = new THREE.Color()
+  list.forEach((t, i) => {
+    mesh.setMatrixAt(i, t.matrix)
+    if (colors) mesh.setColorAt(i, color.set(colors[t.colorIndex % colors.length]))
+  })
+  mesh.instanceMatrix.needsUpdate = true
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+}
+
+function pineCanopy() {
+  const geo = new THREE.ConeGeometry(0.34, 0.95, 5)
+  geo.translate(0, 0.75, 0)
+  return geo
+}
+function roundCanopy() {
+  const geo = new THREE.IcosahedronGeometry(0.36, 0)
+  geo.scale(1, 1.15, 1)
+  geo.translate(0, 0.62, 0)
+  return geo
+}
+function trunk() {
+  const geo = new THREE.CylinderGeometry(0.05, 0.08, 0.4, 4)
+  geo.translate(0, 0.2, 0)
+  return geo
+}
+
+export function Trees() {
+  const trees = useMemo(() => scatterTrees(), [])
+  const pines = useMemo(() => trees.filter((t) => t.kind === 'pine'), [trees])
+  const rounds = useMemo(() => trees.filter((t) => t.kind === 'round'), [trees])
+  const geos = useMemo(() => ({ pine: pineCanopy(), round: roundCanopy(), trunk: trunk() }), [])
+  const leafMat = useMemo(() => ps1Material({ color: '#ffffff' }), [])
+  const trunkMat = useMemo(() => ps1Material({ color: '#5a3f33' }), [])
+
+  const pineRef = useRef<THREE.InstancedMesh>(null)
+  const roundRef = useRef<THREE.InstancedMesh>(null)
+  const trunkRef = useRef<THREE.InstancedMesh>(null)
+
+  useLayoutEffect(() => {
+    fillInstances(pineRef.current, pines, ART.foliage)
+    fillInstances(roundRef.current, rounds, ART.foliage)
+    fillInstances(trunkRef.current, trees, null)
+  }, [pines, rounds, trees])
+
+  return (
+    <>
+      <instancedMesh ref={pineRef} args={[geos.pine, leafMat, pines.length]} />
+      <instancedMesh ref={roundRef} args={[geos.round, leafMat, rounds.length]} />
+      <instancedMesh ref={trunkRef} args={[geos.trunk, trunkMat, trees.length]} />
+    </>
+  )
+}
+
+export function Rocks() {
+  const rocks = useMemo(() => {
+    const rand = mulberry32(99)
+    const out: THREE.Matrix4[] = []
+    const dir = new THREE.Vector3()
+    let attempts = 0
+    while (out.length < 40 && attempts < 3000) {
+      attempts++
+      dir.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize()
+      const h = surfaceRadius(dir)
+      if (h < SEA_LEVEL - 0.1 || padDistance(dir) < 0.04 || pathDistance(dir) < 0.06) continue
+      const { position, quaternion } = surfaceFrame(dir, rand() * 6, -0.04)
+      const s = 0.12 + rand() * 0.28
+      out.push(new THREE.Matrix4().compose(position, quaternion, new THREE.Vector3(s, s * 0.7, s * (0.8 + rand() * 0.4))))
+    }
+    return out
+  }, [])
+  const geo = useMemo(() => new THREE.DodecahedronGeometry(1, 0), [])
+  const mat = useMemo(() => ps1Material({ color: ART.ground.rock }), [])
+  const ref = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    const mesh = ref.current
+    if (!mesh) return
+    rocks.forEach((m, i) => mesh.setMatrixAt(i, m))
+    mesh.instanceMatrix.needsUpdate = true
+  }, [rocks, mat])
+  return <instancedMesh ref={ref} args={[geo, mat, rocks.length]} />
+}
+
+function setBulb(mat: THREE.MeshLambertMaterial, stagger: number) {
+  mat.emissiveIntensity = 2.4 * lightsOn(stagger)
+}
+
+/** Lamp posts lining the paths; each switches on at its own moment as dusk falls. */
+export function Lamps() {
+  const lamps = useMemo(() => {
+    const rand = mulberry32(5)
+    const out: { position: THREE.Vector3; quaternion: THREE.Quaternion; stagger: number; bulb: THREE.MeshLambertMaterial }[] = []
+    PATHS.forEach(([a, b], pi) => {
+      for (const t of [0.3, 0.5, 0.7]) {
+        const side = (pi + t * 10) % 2 < 1 ? 0.055 : -0.055
+        const dir = pointOnArc(a, b, t, side)
+        if (surfaceRadius(dir) < SEA_LEVEL + 0.1) continue
+        out.push({
+          ...surfaceFrame(dir, 0, -0.02),
+          stagger: rand() * 4 - 1,
+          bulb: ps1Material({ color: '#3a3440', emissive: ART.lampGlow, emissiveIntensity: 2.4 }),
+        })
+      }
+    })
+    return out
+  }, [])
+  const postMat = useMemo(() => ps1Material({ color: '#2c2a33' }), [])
+  useFrame(() => lamps.forEach((l) => setBulb(l.bulb, l.stagger)))
+  return (
+    <>
+      {lamps.map((l, i) => (
+        <group key={i} position={l.position} quaternion={l.quaternion}>
+          <mesh position={[0, 0.3, 0]} material={postMat}>
+            <cylinderGeometry args={[0.025, 0.035, 0.6, 4]} />
+          </mesh>
+          <mesh position={[0, 0.64, 0]} material={l.bulb}>
+            <boxGeometry args={[0.1, 0.1, 0.1]} />
+          </mesh>
+          <mesh position={[0, 0.71, 0]} material={postMat}>
+            <coneGeometry args={[0.1, 0.07, 4]} />
+          </mesh>
+          <Glow position={[0, 0.64, 0]} color={ART.lampGlow} size={0.9} stagger={l.stagger} />
+        </group>
+      ))}
+    </>
+  )
+}

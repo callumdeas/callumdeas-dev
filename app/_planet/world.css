@@ -1,0 +1,71 @@
+/* Retro UI motion: stepped, not smooth, like a PS1 menu. */
+@keyframes panel-in {
+  from { transform: translateX(110%); }
+  to { transform: translateX(0); }
+}
+@keyframes sheet-in {
+  from { transform: translateY(110%); }
+  to { transform: translateY(0); }
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+.retro-panel-in {
+  animation: sheet-in 360ms steps(6, end) both;
+}
+@media (min-width: 768px) {
+  .retro-panel-in {
+    animation-name: panel-in;
+  }
+}
+.retro-caret {
+  animation: blink 0.8s steps(1, end) infinite;
+}
+.retro-scroll::-webkit-scrollbar { width: 8px; }
+.retro-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.08); }
+.retro-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.6); border-radius: 0; }
+
+/* ---- World vs. text version --------------------------------------------- */
+/* A head script sets data-world="on" before paint when WebGL is available.   */
+html[data-world='on'] body {
+  overflow: hidden;
+}
+html[data-world='on'] #static-site {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- Boot screen ---------------------------------------------------------- */
+#boot {
+  display: none;
+}
+html[data-world='on'] #boot {
+  display: flex;
+}
+html[data-booted='1'] #boot {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms steps(5, end);
+}
+@keyframes boot-spin {
+  from { transform: rotateY(0deg) rotateX(18deg); }
+  to { transform: rotateY(360deg) rotateX(18deg); }
+}
+@keyframes boot-fill {
+  from { width: 4%; }
+  to { width: 92%; }
+}
+.boot-gem {
+  animation: boot-spin 1.6s steps(16, end) infinite;
+}
+.boot-bar {
+  animation: boot-fill 2.2s steps(12, end) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .boot-gem, .boot-bar, .retro-caret { animation: none; }
+}

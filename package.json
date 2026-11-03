@@ -4,25 +4,32 @@
   "private": true,
   "packageManager": "pnpm@11.8.0",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 4317",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 4317",
     "lint": "eslint",
     "cf:build": "node scripts/cf-build.mjs",
     "preview": "node scripts/cf-build.mjs && opennextjs-cloudflare preview",
-    "deploy:cf": "node scripts/cf-build.mjs && opennextjs-cloudflare deploy"
+    "deploy:cf": "node scripts/cf-build.mjs && opennextjs-cloudflare deploy",
+    "assets:avatar": "/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python scripts/blender/avatar.py -- public/models/avatar.glb && AVATAR_OUTFIT=cap /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python scripts/blender/avatar.py -- public/models/avatar-cap.glb",
+    "assets:landmarks": "/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python scripts/blender/landmarks.py -- public/models/landmarks.glb"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "1.20.13",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "three": "^0.187.0"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.5.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.187.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
