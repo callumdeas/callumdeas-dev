@@ -20,6 +20,8 @@ import { FovFit } from './_world/FovFit'
 import { InteractionContext, type HoverTarget } from './_world/interaction'
 import { Landmarks } from './_world/Landmarks'
 import { Seasonal } from './_world/Seasonal'
+import { WeatherFx } from './_world/Weather'
+import { applyReport, loadWeather, overrideWeather, readOverride, settleWeather, weather } from './_lib/weather'
 import { PS1Pipeline } from './_world/Pipeline'
 import { Lamps, Ocean, Planet, Rocks, Trees } from './_world/Terrain'
 import { InfoPanel } from './_ui/InfoPanel'
@@ -163,6 +165,31 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
     setContext({ season: season.name, festival: season.festival })
   }, [])
 
+  // Weather where the visitor is: ?weather=rain etc. overrides it for review.
+  // Never blocks the boot; if the lookup fails the sky just stays clear.
+  useEffect(() => {
+    const forced = readOverride()
+    if (forced) {
+      overrideWeather(forced)
+      settleWeather()
+      return
+    }
+    let cancelled = false
+    const refresh = async (first: boolean) => {
+      const report = await loadWeather(env.location.lat, env.location.lon)
+      if (cancelled || !report || weather.source === 'override') return
+      applyReport(report, 'live')
+      if (first) settleWeather()
+      setContext({ weather: report.kind })
+    }
+    void refresh(true)
+    const id = window.setInterval(() => void refresh(false), 15 * 60_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [])
+
   // UI sounds follow the selection.
   const prevSelection = useRef<Selection>(null)
   useEffect(() => {
@@ -303,6 +330,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
               <ReadySignal onReady={onReady} />
             </Suspense>
             <Seasonal reducedMotion={reducedMotion} />
+            <WeatherFx reducedMotion={reducedMotion} />
             <Clouds />
             <Fireflies />
           </CameraRig>

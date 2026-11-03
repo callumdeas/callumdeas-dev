@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { smoothstep } from './noise'
 import { season, updateSeason } from './seasons'
+import { weather } from './weather'
 import { computeSky, guessLocation, type Location, type SkyState } from './sky'
 
 /**
@@ -179,6 +180,9 @@ export type Environment = {
   /** Brief extra fill light from firework bursts (and, later, lightning). Decays each frame. */
   flash: number
   flashColor: THREE.Color
+  /** Scene fog distances; weather pulls them in. */
+  fogNear: number
+  fogFar: number
 }
 
 export const env: Environment = {
@@ -201,6 +205,8 @@ export const env: Environment = {
   snow: 0,
   flash: 0,
   flashColor: new THREE.Color('#ffffff'),
+  fogNear: 26,
+  fogFar: 62,
 }
 
 /**
@@ -219,7 +225,7 @@ export function updateEnvironment(time: number) {
   env.time = time
   env.sky = computeSky(time, env.location)
   updateSeason(time, env.location.lat)
-  env.snow = season.festiveSnow
+  env.snow = Math.max(season.festiveSnow, weather.lying)
   const el = env.sky.sun.elevation
 
   const last = STOPS.length - 1
@@ -245,6 +251,40 @@ export function updateEnvironment(time: number) {
   env.stars = smoothstep(-5, -13, el)
   env.moonIntensity =
     smoothstep(-2, 8, env.sky.moon.elevation) * (0.25 + 0.95 * env.sky.moon.illumination) * smoothstep(2, -6, el)
+
+  applyWeather()
+}
+
+const GREY_KEYS: readonly ColorKey[] = ['skyTop', 'skyMid', 'skyBottom', 'glow', 'fog', 'hemiSky', 'cloud', 'ocean']
+const grey = new THREE.Color()
+
+/** Cloud and rain flatten the light: greyer, dimmer, the sun hidden, fog closer. */
+function applyWeather() {
+  const w = weather.now
+  const oc = w.overcast
+  if (oc > 0.001) {
+    for (const key of GREY_KEYS) {
+      const c = env.colors[key]
+      const l = c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+      c.lerp(grey.setRGB(l, l, l), oc * 0.65)
+    }
+    env.colors.cloud.multiplyScalar(1 - 0.35 * oc)
+    env.colors.skyTop.multiplyScalar(1 - 0.2 * oc)
+    env.hemi *= 1 - 0.18 * oc
+    env.sunIntensity *= 1 - 0.8 * smoothstep(0.1, 0.9, oc)
+    env.moonIntensity *= 1 - 0.7 * oc
+    env.stars *= 1 - smoothstep(0.15, 0.6, oc)
+  }
+  // Storms go properly dark.
+  if (w.storm > 0.001) {
+    for (const key of GREY_KEYS) env.colors[key].multiplyScalar(1 - 0.4 * w.storm)
+    env.hemi *= 1 - 0.3 * w.storm
+  }
+  // Snow brightens everything a touch (light bouncing off the ground).
+  env.hemi *= 1 + env.snow * 0.12
+  // Fog closes in, but the planet (about 36 units away) must stay readable.
+  env.fogNear = 26 - 14 * w.fog
+  env.fogFar = 62 - 18 * w.fog
 }
 
 /** Night factor for one light with its own switch-on offset (degrees). */

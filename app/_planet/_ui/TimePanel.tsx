@@ -5,11 +5,24 @@ import { ART } from '../_lib/art'
 import { clock, env, goLive, setSimTime, setSpeed, simNow } from '../_lib/environment'
 import { FESTIVAL_LABEL, presetTime, season, type Preset } from '../_lib/seasons'
 import { phaseName } from '../_lib/sky'
+import { formatTemp, overrideWeather, weather } from '../_lib/weather'
+import { WEATHER_KINDS, WEATHER_LABEL, type WeatherKind } from '../../_lib/weather-types'
 import { Panel, RetroButton } from './retro'
 
 export const SPEEDS: readonly number[] = [60, 600, 3600]
 export const MINUTE = 60_000
 export const DAY = 86_400_000
+
+const WEATHER_ICON: Record<WeatherKind, string> = {
+  clear: '☀',
+  cloudy: '⛅',
+  overcast: '☁',
+  fog: '≋',
+  drizzle: '☂',
+  rain: '☔',
+  snow: '❄',
+  storm: '⚡',
+}
 
 const PRESETS: readonly [Preset, string][] = [
   ['bonfire', 'BONFIRE'],
@@ -49,8 +62,14 @@ export function ClockLine() {
   const icon = el > -1 ? '☀' : '☾'
   return (
     <div className="mt-1 text-lg leading-none opacity-80">
-      {icon} {pad(now.getHours())}:{pad(now.getMinutes())} · {env.location.label.toUpperCase()}
+      {icon} {pad(now.getHours())}:{pad(now.getMinutes())} · {(weather.report?.place ?? env.location.label).toUpperCase()}
       {!clock.live && <span style={{ color: ART.accent }}> · TIME TRAVEL</span>}
+      {weather.source === 'override' && <span style={{ color: ART.accent }}> · WEATHER OVERRIDE</span>}
+      {weather.report && (
+        <div className="mt-1">
+          {WEATHER_ICON[weather.kind]} {formatTemp(weather.report.tempC)} · {WEATHER_LABEL[weather.kind]}
+        </div>
+      )}
       {season.festival && <div className="mt-1" style={{ color: ART.accent }}>★ {FESTIVAL_LABEL[season.festival]} ★</div>}
     </div>
   )
@@ -129,7 +148,16 @@ export function TimePanel() {
           </RetroButton>
         ))}
       </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-base opacity-60">SKY</span>
+        {WEATHER_KINDS.map((k) => (
+          <RetroButton key={k} active={weather.kind === k} onClick={() => overrideWeather(k)}>
+            {WEATHER_ICON[k]}
+          </RetroButton>
+        ))}
+      </div>
       <div className="mt-1 text-base leading-none opacity-60">
+        {WEATHER_LABEL[weather.kind]} ({weather.source.toUpperCase()}) · SNOW LYING {Math.round(env.snow * 100)}% ·{' '}
         {season.name.toUpperCase()}
         {season.festival ? ` · ${FESTIVAL_LABEL[season.festival]}` : ''}
         {season.fireworks > 0 ? ` · FIREWORKS ${Math.round(season.fireworks * 100)}%` : ''}
