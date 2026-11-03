@@ -40,8 +40,11 @@ export async function POST(request: Request) {
   if (!parsed.ok) return reply({ status: 'invalid', error: parsed.error }, 400)
   const letter = parsed.payload
 
-  // Bots: fill the honeypot or post instantly. Pretend it worked so they move on.
-  if (letter.website || letter.elapsedMs < MIN_FILL_MS) return reply({ status: 'sent' })
+  // Bots fill the honeypot: pretend it worked so they move on.
+  if (letter.website) return reply({ status: 'sent' })
+  // Suspiciously fast (bot, or autofill + paste): still deliver, but flag it.
+  // A lost real enquiry costs more than one spam email.
+  const fast = letter.elapsedMs < MIN_FILL_MS
 
   const key = process.env.RESEND_API_KEY
   if (!key) return reply({ status: 'unconfigured' })
@@ -63,7 +66,7 @@ export async function POST(request: Request) {
         from: FROM,
         to: [ENQUIRY_TO],
         reply_to: letter.email,
-        subject: `✉ ${topicLabel(letter.topic)} — ${letter.name}`,
+        subject: `${fast ? '[fast] ' : ''}✉ ${topicLabel(letter.topic)} — ${letter.name}`,
         // Plain text only: nothing the visitor typed is ever rendered as HTML.
         text,
       }),

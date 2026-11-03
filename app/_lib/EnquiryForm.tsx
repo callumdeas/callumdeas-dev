@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { track } from './analytics'
-import { LIMITS, TOPICS, checkLetter, isTopicId, mailtoFor, type EnquiryResult, type FieldErrors, type Letter } from './enquiry'
+import { ENQUIRY_TO, LIMITS, TOPICS, checkLetter, isTopicId, mailtoFor, type EnquiryResult, type FieldErrors, type Letter } from './enquiry'
 
 /**
  * The enquiry form. One component, two looks: the retro panel on the planet
@@ -11,6 +11,8 @@ import { LIMITS, TOPICS, checkLetter, isTopicId, mailtoFor, type EnquiryResult, 
  */
 
 let draft: Letter = { name: '', email: '', topic: 'website', message: '' }
+/** When this visitor started writing (first edit). Survives panel remounts, like the draft. */
+let startedAt = 0
 
 type Phase = 'writing' | 'sending' | 'sent' | 'fallback'
 
@@ -90,13 +92,11 @@ export function EnquiryForm({ variant, onSent }: { variant: 'retro' | 'plain'; o
   const [phase, setPhase] = useState<Phase>('writing')
   const [serverError, setServerError] = useState<string | null>(null)
   const [website, setWebsite] = useState('')
-  const openedAt = useRef(0)
   const counted = useRef(false)
 
   // The planet's panel counts as opened when shown. The text version's form is
   // always in the DOM (hidden under the planet), so it counts on first focus instead.
   useEffect(() => {
-    openedAt.current = Date.now()
     if (variant === 'retro') {
       counted.current = true
       track('enquiry_opened', { variant })
@@ -106,11 +106,11 @@ export function EnquiryForm({ variant, onSent }: { variant: 'retro' | 'plain'; o
   const onFirstFocus = () => {
     if (counted.current) return
     counted.current = true
-    openedAt.current = Date.now()
     track('enquiry_opened', { variant })
   }
 
   const update = (patch: Partial<Letter>) => {
+    if (startedAt === 0) startedAt = Date.now()
     const next = { ...letter, ...patch }
     draft = next
     setLetter(next)
@@ -123,9 +123,10 @@ export function EnquiryForm({ variant, onSent }: { variant: 'retro' | 'plain'; o
     setServerError(null)
     if (Object.keys(found).length > 0) return
     setPhase('sending')
-    const result = await post(letter, Date.now() - openedAt.current, website)
+    const result = await post(letter, startedAt ? Date.now() - startedAt : 0, website)
     if (result.status === 'sent') {
       draft = { name: letter.name, email: letter.email, topic: letter.topic, message: '' }
+      startedAt = 0
       setPhase('sent')
       track('enquiry_sent', { topic: letter.topic, variant })
       onSent?.()
@@ -245,6 +246,9 @@ export function EnquiryForm({ variant, onSent }: { variant: 'retro' | 'plain'; o
         </button>
         <span style={look.note}>Goes straight to Callum’s inbox.</span>
       </div>
+      <noscript>
+        <p style={look.note}>This form needs JavaScript. Email {ENQUIRY_TO} instead.</p>
+      </noscript>
     </form>
   )
 }
