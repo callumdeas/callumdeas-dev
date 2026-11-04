@@ -62,7 +62,7 @@ export function ClockLine() {
   const icon = el > -1 ? '☀' : '☾'
   return (
     <div className="mt-1 text-lg leading-none opacity-80">
-      {icon} {pad(now.getHours())}:{pad(now.getMinutes())} · {(weather.report?.place ?? env.location.label).toUpperCase()}
+      {icon} {pad(now.getHours())}:{pad(now.getMinutes())}
       {!clock.live && <span style={{ color: ART.accent }}> · TIME TRAVEL</span>}
       {weather.source === 'override' && <span style={{ color: ART.accent }}> · WEATHER OVERRIDE</span>}
       {weather.report && (

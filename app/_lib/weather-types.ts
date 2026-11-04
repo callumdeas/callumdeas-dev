@@ -14,8 +14,6 @@ export type WeatherReport = {
   /** m/s at 10m. */
   wind: number
   tempC: number
-  /** Coarse place name from the visitor's IP (city), when known. */
-  place: string | null
 }
 
 /** WMO weather interpretation code → our weather kind and how heavy it is. */
