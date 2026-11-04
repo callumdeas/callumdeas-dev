@@ -5,7 +5,7 @@
  * Leave POSTHOG_KEY empty to keep tracking off: track() becomes a no-op, and under
  * ?debug every event is still logged to the console.
  */
-export const POSTHOG_KEY = ''
+export const POSTHOG_KEY = 'phc_vtV96cYP94FpmsnpAcrhw42Qdw7TVgbKmDhq5PPEdyxg'
 
 /** Which PostHog cloud the project lives in. */
 export const POSTHOG_REGION: 'eu' | 'us' = 'eu'
