@@ -7,7 +7,7 @@ import * as THREE from 'three'
 import { disposePalette, makePalette, type Palette } from '../_lib/assets'
 import { env, lightsOn } from '../_lib/environment'
 import { LANDMARKS, surfaceFrame, type LandmarkId } from '../_lib/planet'
-import { projectById } from '../_lib/projects'
+import { season } from '../_lib/seasons'
 import { Glow, type GlowKind } from './Glow'
 import { Marker, useInteraction, usePickable } from './interaction'
 
@@ -25,6 +25,7 @@ const MARKER_HEIGHT: Record<LandmarkId, number> = {
   farmhouse: 2.7,
   highstreet: 2.6,
   stadium: 3.6,
+  postoffice: 2.9,
 }
 
 /** Invisible, generous click targets so small buildings are easy to pick. */
@@ -35,6 +36,7 @@ const HITBOX: Record<LandmarkId, { size: V3; y: number }> = {
   farmhouse: { size: [3.4, 2.4, 3.6], y: 0.9 },
   highstreet: { size: [5.6, 2.4, 2.6], y: 0.9 },
   stadium: { size: [4.2, 2.8, 3.8], y: 1.0 },
+  postoffice: { size: [2.8, 2.6, 2.4], y: 1.0 },
 }
 const hitMaterial = new THREE.MeshBasicMaterial({ visible: false })
 
@@ -44,7 +46,6 @@ function Site({ id, children }: { id: LandmarkId; children: ReactNode }) {
   const { hovered, selection, select } = useInteraction()
   const pick = useCallback(() => select({ kind: 'landmark', id }), [select, id])
   const handlers = usePickable(id, pick)
-  const project = projectById(id)
   if (!frame || !lm) return null
   return (
     <group position={frame.position} quaternion={frame.quaternion}>
@@ -56,7 +57,7 @@ function Site({ id, children }: { id: LandmarkId; children: ReactNode }) {
       </group>
       <Marker
         height={MARKER_HEIGHT[id]}
-        label={project.name.toUpperCase()}
+        label={lm.project.toUpperCase()}
         sub={lm.title}
         hovered={hovered === id}
         hidden={selection !== null}
@@ -156,6 +157,8 @@ function materialFor(name: string, m: Palette): THREE.Material {
     SeatBlue: m.seatBlue,
     SeatWhite: m.seatWhite,
     Scoreboard: m.scoreboard,
+    PostRed: m.postRed,
+    PostSign: m.postSign,
   }
   return table[name] ?? m.dark
 }
@@ -254,6 +257,7 @@ function driveLights(m: Palette, t: number) {
   setEmissive(m.scoreboard, 0.8 + 0.8 * env.night)
   // Shop signs get a soft night-time backlight.
   for (const sign of m.shopSigns) setEmissive(sign, 0.55 * lightsOn(0))
+  setEmissive(m.postSign, 0.55 * lightsOn(0))
   // Arcade neon: always on, brighter at night, with the odd flicker.
   const neon = 0.3 + 0.7 * env.night
   const flick = Math.sin(t * 23) > 0.92 || Math.sin(t * 3.1) > 0.995 ? 0.4 : 2.2
@@ -261,10 +265,30 @@ function driveLights(m: Palette, t: number) {
   setEmissive(m.neonCyan, (1.8 + Math.sin(t * 2) * 0.4) * neon)
 }
 
+const SNOW = new THREE.Color('#f2ecf2')
+const PUMPKIN_GLOW = new THREE.Color('#ff7a1a')
+
+/** Roofs whiten as snow settles; pumpkins become jack-o'-lanterns for Halloween. */
+function useSeasonalMaterials(m: Palette) {
+  const roofs = useMemo(
+    () => [m.roofRed, m.roofSlate, m.roofTeal].map((mat) => ({ mat, base: mat.color.clone() })),
+    [m],
+  )
+  useFrame(({ clock }) => driveSeasonal(m, roofs, clock.elapsedTime))
+}
+
+function driveSeasonal(m: Palette, roofs: { mat: THREE.MeshLambertMaterial; base: THREE.Color }[], t: number) {
+  for (const r of roofs) r.mat.color.copy(r.base).lerp(SNOW, env.snow * 0.8)
+  const lit = season.festival === 'halloween' ? lightsOn(0) : 0
+  m.pumpkin.emissive.set(PUMPKIN_GLOW)
+  m.pumpkin.emissiveIntensity = lit * (1.3 + Math.sin(t * 7) * 0.2)
+}
+
 export function Landmarks() {
   const palette = useMemo(() => makePalette(), [])
   useEffect(() => () => disposePalette(palette), [palette])
   useFrame(({ clock }) => driveLights(palette, clock.elapsedTime))
+  useSeasonalMaterials(palette)
   return (
     <>
       {LANDMARKS.map((lm) => (

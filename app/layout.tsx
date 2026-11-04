@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { JetBrains_Mono, VT323 } from 'next/font/google'
 import './globals.css'
 import './_planet/world.css'
+import { AnalyticsInit } from './_lib/AnalyticsInit'
 
 const jetbrainsMono = JetBrains_Mono({
   variable: '--font-mono',
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="h-full antialiased" style={{ fontFamily: 'var(--font-mono), monospace', background: '#11111b' }}>
         {children}
+        <AnalyticsInit />
       </body>
     </html>
   )

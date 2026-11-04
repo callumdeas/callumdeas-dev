@@ -49,6 +49,7 @@ const DISTANCE: Record<LandmarkId, number> = {
   farmhouse: 8,
   highstreet: 10.5,
   stadium: 11,
+  postoffice: 8,
 }
 const LOOK_HEIGHT: Record<LandmarkId, number> = {
   chapel: 1.7,
@@ -57,6 +58,7 @@ const LOOK_HEIGHT: Record<LandmarkId, number> = {
   farmhouse: 0.8,
   highstreet: 0.8,
   stadium: 0.6,
+  postoffice: 0.9,
 }
 
 function presentedShot(

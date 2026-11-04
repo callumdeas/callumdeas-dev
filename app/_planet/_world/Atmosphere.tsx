@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { ART } from '../_lib/art'
 import { getTextures } from '../_lib/assets'
 import { env, simNow, updateEnvironment } from '../_lib/environment'
+import { stepWeather, sunHidden, weather } from '../_lib/weather'
 import { mulberry32 } from '../_lib/noise'
 import { PLANET_RADIUS } from '../_lib/planet'
 import { ps1Material } from '../_lib/ps1'
@@ -18,13 +19,17 @@ const toWorld = (dir: THREE.Vector3, camera: THREE.Camera, out: THREE.Vector3) =
   out.copy(dir).applyQuaternion(camera.quaternion)
 
 function syncFog(scene: THREE.Scene) {
-  if (scene.fog instanceof THREE.Fog) scene.fog.color.copy(env.colors.fog)
+  if (!(scene.fog instanceof THREE.Fog)) return
+  scene.fog.color.copy(env.colors.fog)
+  scene.fog.near = env.fogNear
+  scene.fog.far = env.fogFar
 }
 
 /** Advances the clock and recomputes the whole lighting rig before anything else draws. */
 export function EnvironmentDriver() {
   const scene = useThree((s) => s.scene)
-  useFrame(() => {
+  useFrame((_, dt) => {
+    stepWeather(Math.min(dt, 0.1))
     updateEnvironment(simNow())
     syncFog(scene)
   }, -1)
@@ -40,7 +45,7 @@ function setSkyUniforms(material: THREE.ShaderMaterial) {
   u.uSunDir.value.copy(env.sunDir)
   // Glow is strongest when the sun is near the horizon.
   const el = env.sky.sun.elevation
-  u.uGlowStrength.value = Math.max(0, 1 - Math.abs(el - 1) / 22) * 0.9 + (el > 0 ? 0.2 : 0)
+  u.uGlowStrength.value = (Math.max(0, 1 - Math.abs(el - 1) / 22) * 0.9 + (el > 0 ? 0.2 : 0)) * (1 - 0.85 * sunHidden())
 }
 
 /** Screen-space gradient dome with a halo around the real sun position. */
@@ -134,7 +139,7 @@ export function Sun() {
     placeInSky(s, env.sunDir, camera)
     sunColor.lerpColors(SUN_LOW, SUN_HIGH, THREE.MathUtils.smoothstep(el, 0, 25))
     // Bigger and redder near the horizon.
-    setSpriteLook(s, sunColor, THREE.MathUtils.smoothstep(el, -4, 1), 55 + (1 - THREE.MathUtils.smoothstep(el, 0, 30)) * 35)
+    setSpriteLook(s, sunColor, THREE.MathUtils.smoothstep(el, -4, 1) * (1 - 0.9 * sunHidden()), 55 + (1 - THREE.MathUtils.smoothstep(el, 0, 30)) * 35)
   })
   return (
     <sprite ref={sprite} renderOrder={-9}>
@@ -165,7 +170,7 @@ export function Moon({ onClick }: { onClick?: () => void }) {
     }
     placeInSky(s, env.moonDir, camera)
     // Daytime moon: pale ghost; night moon: bright.
-    const opacity = THREE.MathUtils.smoothstep(env.sky.moon.elevation, -3, 1) * (0.35 + 0.65 * env.night)
+    const opacity = THREE.MathUtils.smoothstep(env.sky.moon.elevation, -3, 1) * (0.35 + 0.65 * env.night) * (1 - 0.8 * sunHidden())
     setSpriteLook(s, MOON_TINT, opacity, 52)
   })
   return (
@@ -226,9 +231,9 @@ function keyDirection(dir: THREE.Vector3, camera: THREE.Camera, out: THREE.Vecto
 }
 
 function syncLights(hemi: THREE.HemisphereLight, sun: THREE.DirectionalLight, moon: THREE.DirectionalLight, camera: THREE.Camera) {
-  hemi.color.copy(env.colors.hemiSky)
+  hemi.color.copy(env.colors.hemiSky).lerp(env.flashColor, Math.min(1, env.flash * 0.6))
   hemi.groundColor.copy(env.colors.hemiGround)
-  hemi.intensity = env.hemi
+  hemi.intensity = env.hemi + env.flash
   sun.color.copy(env.colors.sunColor)
   sun.intensity = env.sunIntensity
   keyDirection(env.sunDir, camera, sun.position)
@@ -255,6 +260,19 @@ export function Lights() {
 
 function syncCloudMaterial(mat: THREE.MeshLambertMaterial) {
   mat.color.copy(env.colors.cloud)
+  mat.opacity = 0.6 + 0.3 * weather.now.overcast
+}
+
+const CLUSTERS = 22
+
+/** Cloud cover decides how many clusters are out; rain makes them fatter. */
+function cloudCover(group: THREE.Group) {
+  const shown = 4 + Math.round(weather.now.cloud * (CLUSTERS - 4))
+  const swell = 1 + weather.now.overcast * 0.5
+  group.children.forEach((cluster, i) => {
+    cluster.scale.setScalar(swell)
+    if (i >= shown) cluster.visible = false
+  })
 }
 
 const cloudPos = new THREE.Vector3()
@@ -273,7 +291,7 @@ export function Clouds() {
   const geo = useMemo(() => new THREE.IcosahedronGeometry(1, 1), [])
   const clusters = useMemo(() => {
     const rand = mulberry32(11)
-    return Array.from({ length: 9 }, () => {
+    return Array.from({ length: CLUSTERS }, () => {
       const dir = new THREE.Vector3(rand() * 2 - 1, (rand() * 2 - 1) * 0.7, rand() * 2 - 1).normalize()
       const r = PLANET_RADIUS + 3.2 + rand() * 2
       const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
@@ -289,8 +307,9 @@ export function Clouds() {
   useFrame(({ camera }, dt) => {
     const g = group.current
     if (g) {
-      g.rotation.y += dt * 0.02
+      g.rotation.y += dt * (0.012 + weather.now.wind * 0.004)
       cullNearCamera(g, camera)
+      cloudCover(g)
     }
     syncCloudMaterial(material)
   })

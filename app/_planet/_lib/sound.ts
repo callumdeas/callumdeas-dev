@@ -32,6 +32,8 @@ class SoundEngine {
   private chordTimer: number | null = null
   private chordIndex = 0
   private night = 0
+  private rain: GainNode | null = null
+  private rainLevel = 0
   enabled = false
 
   /** Restore the saved preference (does not start audio until a gesture calls enable). */
@@ -92,6 +94,23 @@ class SoundEngine {
       osc.start()
       return { osc, gain }
     })
+
+    // Rain bed: looped filtered noise, silent until the weather asks for it.
+    const rainBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate)
+    const rainData = rainBuffer.getChannelData(0)
+    for (let i = 0; i < rainData.length; i++) rainData[i] = Math.random() * 2 - 1
+    const rainSrc = ctx.createBufferSource()
+    rainSrc.buffer = rainBuffer
+    rainSrc.loop = true
+    const rainFilter = ctx.createBiquadFilter()
+    rainFilter.type = 'bandpass'
+    rainFilter.frequency.value = 1800
+    rainFilter.Q.value = 0.4
+    const rain = ctx.createGain()
+    rain.gain.value = this.rainLevel * 0.12
+    rainSrc.connect(rainFilter).connect(rain).connect(master)
+    rainSrc.start()
+    this.rain = rain
 
     this.ctx = ctx
     this.master = master
@@ -208,6 +227,62 @@ class SoundEngine {
     osc.start(t)
     osc.stop(t + 0.55)
   }
+  /** 0..1 rain loudness (follows the live weather). */
+  setRain(level: number) {
+    this.rainLevel = level
+    if (this.rain && this.ctx) this.rain.gain.setTargetAtTime(level * 0.12, this.ctx.currentTime, 1.5)
+  }
+
+  /** A low rumble that rolls in and dies away. */
+  thunder(volume: number, delay: number) {
+    const ctx = this.ctx
+    if (!ctx || !this.sfx || !this.enabled) return
+    const src = this.noise(3.2, (k) => (k < 0.06 ? k / 0.06 : (1 - k) ** 2) * (0.7 + 0.3 * Math.sin(k * 40)))
+    if (!src) return
+    const low = ctx.createBiquadFilter()
+    low.type = 'lowpass'
+    low.frequency.value = 140
+    const gain = ctx.createGain()
+    gain.gain.value = 0.9 * volume
+    src.connect(low).connect(gain).connect(this.sfx)
+    src.start(ctx.currentTime + delay)
+  }
+
+  private noise(seconds: number, shape: (k: number) => number) {
+    const ctx = this.ctx
+    if (!ctx) return null
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * shape(i / data.length)
+    const src = ctx.createBufferSource()
+    src.buffer = buffer
+    return src
+  }
+
+  /** Distant firework: a muffled boom, then crackle. `delay` lets sound lag the flash. */
+  firework(volume: number, delay: number) {
+    const ctx = this.ctx
+    if (!ctx || !this.sfx || !this.enabled) return
+    const t = ctx.currentTime + delay
+    const boom = this.noise(0.9, (k) => (1 - k) ** 3)
+    const crackle = this.noise(1.2, (k) => (Math.random() < 0.035 ? 1 : 0) * (1 - k))
+    if (!boom || !crackle) return
+    const low = ctx.createBiquadFilter()
+    low.type = 'lowpass'
+    low.frequency.value = 260
+    const boomGain = ctx.createGain()
+    boomGain.gain.value = 0.55 * volume
+    boom.connect(low).connect(boomGain).connect(this.sfx)
+    const high = ctx.createBiquadFilter()
+    high.type = 'highpass'
+    high.frequency.value = 2400
+    const crackleGain = ctx.createGain()
+    crackleGain.gain.value = 0.22 * volume
+    crackle.connect(high).connect(crackleGain).connect(this.sfx)
+    boom.start(t)
+    crackle.start(t + 0.12)
+  }
+
   /** Soft filtered-noise footstep. */
   step() {
     const ctx = this.ctx

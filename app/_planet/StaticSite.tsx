@@ -1,3 +1,4 @@
+import { EnquiryForm } from '../_lib/EnquiryForm'
 import { ABOUT, PROJECTS } from './_lib/projects'
 
 const accent = '#ff9d6c'
@@ -88,6 +89,19 @@ export function StaticSite() {
               )}
             </section>
           ))}
+
+          <section aria-labelledby="contact">
+            <p className="text-lg leading-none" style={{ fontFamily: 'var(--font-pixel), monospace', color: accent }}>
+              ▸ THE POST OFFICE
+            </p>
+            <h2 id="contact" className="mt-2 text-2xl font-semibold">
+              Get in touch
+            </h2>
+            <p className="mt-4 mb-5 text-sm leading-relaxed" style={{ color: '#a6adc8' }}>
+              Got a project in mind, or just want to say hi? Send me a letter and I&apos;ll write back.
+            </p>
+            <EnquiryForm variant="plain" />
+          </section>
         </main>
 
         <footer className="mt-16 text-xs" style={{ color: '#585b70' }}>

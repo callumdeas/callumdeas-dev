@@ -2,10 +2,11 @@
 
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { setContext, track } from '../_lib/analytics'
 import { ART } from './_lib/art'
 import { clock, goLive, initEnvironment, setSimTime, setSpeed, simNow } from './_lib/environment'
 import { clearInput, isMoveKey, pressKey } from './_lib/input'
-import type { LandmarkId } from './_lib/planet'
+import { LANDMARKS, type LandmarkId } from './_lib/planet'
 import { PROJECTS, projectById } from './_lib/projects'
 import { sameSelection, type Selection } from './_lib/selection'
 import { Clouds, EnvironmentDriver, Fireflies, Lights, Moon, Sky, Stars, Sun } from './_world/Atmosphere'
@@ -18,12 +19,16 @@ import { ExploreController } from './_world/Explore'
 import { FovFit } from './_world/FovFit'
 import { InteractionContext, type HoverTarget } from './_world/interaction'
 import { Landmarks } from './_world/Landmarks'
+import { Seasonal } from './_world/Seasonal'
+import { WeatherFx } from './_world/Weather'
+import { applyReport, loadWeather, overrideWeather, readOverride, settleWeather, weather } from './_lib/weather'
 import { PS1Pipeline } from './_world/Pipeline'
 import { Lamps, Ocean, Planet, Rocks, Trees } from './_world/Terrain'
 import { InfoPanel } from './_ui/InfoPanel'
 import { Joystick } from './_ui/Joystick'
 import { Panel, RetroButton, pixelFont } from './_ui/retro'
 import { ClockLine, DAY, MINUTE, SPEEDS, TimePanel } from './_ui/TimePanel'
+import { season } from './_lib/seasons'
 
 // This module only ever loads in the browser (dynamic import, ssr: false).
 initEnvironment()
@@ -35,7 +40,16 @@ const DEBUG = new URLSearchParams(window.location.search).has('debug')
 const TOUR: readonly Exclude<Selection, null>[] = [
   { kind: 'avatar' },
   ...PROJECTS.map((p): Exclude<Selection, null> => ({ kind: 'landmark', id: p.id })),
+  { kind: 'landmark', id: 'postoffice' },
 ]
+
+/** Places menu rows: [left label, right label]. */
+function placeLabels(t: Exclude<Selection, null>): [string, string] {
+  if (t.kind === 'avatar') return ['Say hi', 'About me']
+  if (t.id === 'postoffice') return ['Post Office', 'Get in touch']
+  const p = projectById(t.id)
+  return [p.place, p.name]
+}
 
 function useMedia(query: string) {
   const [match, setMatch] = useState(() => window.matchMedia(query).matches)
@@ -91,11 +105,21 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
   const height = RESOLUTIONS[resIndex]
   const exploring = mode === 'explore'
 
+  /** How the next selection was made, for analytics. Clicks in the world are the default. */
+  const via = useRef('click')
   const select = useCallback((next: Selection) => {
     setSelection((prev) => (sameSelection(prev, next) ? prev : next))
   }, [])
+  const selectVia = useCallback(
+    (how: string, next: Selection) => {
+      via.current = how
+      select(next)
+    },
+    [select],
+  )
 
   const step = useCallback((dir: 1 | -1) => {
+    via.current = 'tour'
     setSelection((prev) => {
       const i = TOUR.findIndex((t) => sameSelection(t, prev))
       return TOUR[(i + dir + TOUR.length) % TOUR.length]
@@ -105,8 +129,10 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
   const startExplore = useCallback(() => {
     setSelection(null)
     setMode('explore')
+    track('explore_started')
   }, [])
   const stopExplore = useCallback(() => {
+    if (avatarControl.exploring) track('explore_stopped')
     clearInput()
     setMode('orbit')
     setNear(null)
@@ -131,18 +157,56 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
     // Transition: keep the current avatar (and the buildings) on screen while the new GLB loads.
     startTransition(() => setOutfit(next))
     showToast(next === 'cap' ? '★ SECRET OUTFIT UNLOCKED ★' : 'BACK IN THE BEANIE')
+    track('secret_found', { secret: 'outfit', outfit: next })
   }, [outfit, showToast])
-  const foundCat = useCallback(() => showToast('YOU FOUND THE CAT! =^.^='), [showToast])
+  const foundCat = useCallback(() => {
+    showToast('YOU FOUND THE CAT! =^.^=')
+    track('secret_found', { secret: 'cat' })
+  }, [showToast])
   const wish = useCallback(() => {
     requestShootingStar()
     showToast('✦ MAKE A WISH ✦')
+    track('secret_found', { secret: 'wish' })
   }, [showToast])
+
+  // Season and festival ride along on every event.
+  useEffect(() => {
+    setContext({ season: season.name, festival: season.festival })
+  }, [])
+
+  // Weather where the visitor is: ?weather=rain etc. overrides it for review.
+  // Never blocks the boot; if the lookup fails the sky just stays clear.
+  useEffect(() => {
+    const forced = readOverride()
+    if (forced) {
+      overrideWeather(forced)
+      settleWeather()
+      return
+    }
+    let cancelled = false
+    const refresh = async (first: boolean) => {
+      const report = await loadWeather(env.location.lat, env.location.lon)
+      if (cancelled || !report || weather.source === 'override') return
+      applyReport(report, 'live')
+      if (first) settleWeather()
+      setContext({ weather: report.kind })
+    }
+    void refresh(true)
+    const id = window.setInterval(() => void refresh(false), 15 * 60_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [])
 
   // UI sounds follow the selection.
   const prevSelection = useRef<Selection>(null)
   useEffect(() => {
-    if (selection && !sameSelection(selection, prevSelection.current)) sound.select()
-    else if (!selection && prevSelection.current) sound.back()
+    if (selection && !sameSelection(selection, prevSelection.current)) {
+      sound.select()
+      track('place_opened', { place: selection.kind === 'avatar' ? 'about' : selection.id, via: via.current })
+      via.current = 'click'
+    } else if (!selection && prevSelection.current) sound.back()
     prevSelection.current = selection
   }, [selection])
 
@@ -162,6 +226,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
   }, [])
 
   const toggleSound = useCallback(() => {
+    track('sound_toggled', { on: !sound.enabled })
     if (sound.enabled) {
       sound.disable()
       setSoundOn(false)
@@ -174,7 +239,9 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
 
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return
+      const el = e.target
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return
+      if (el instanceof HTMLElement && el.isContentEditable) return
       const k = e.key
       konami.current = [...konami.current, k.toLowerCase()].slice(-KONAMI.length)
       if (konami.current.join() === KONAMI.join()) {
@@ -194,7 +261,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
         }
         if ((k === 'e' || k === 'Enter') && near) {
           clearInput()
-          select({ kind: 'landmark', id: near })
+          selectVia('explore', { kind: 'landmark', id: near })
           return
         }
       }
@@ -226,9 +293,9 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
       window.removeEventListener('keyup', onUp)
       window.removeEventListener('blur', onBlur)
     }
-  }, [selection, exploring, near, step, select, startExplore, stopExplore, toggleOutfit, toggleSound])
+  }, [selection, exploring, near, step, selectVia, startExplore, stopExplore, toggleOutfit, toggleSound])
 
-  const nearProject = near ? projectById(near) : null
+  const nearPlace = near ? LANDMARKS.find((l) => l.id === near) ?? null : null
 
   return (
     <div className="fixed inset-0 overflow-hidden select-none" style={{ background: '#14233a' }}>
@@ -271,6 +338,8 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
               </Suspense>
               <ReadySignal onReady={onReady} />
             </Suspense>
+            <Seasonal reducedMotion={reducedMotion} />
+            <WeatherFx reducedMotion={reducedMotion} />
             <Clouds />
             <Fireflies />
           </CameraRig>
@@ -342,23 +411,23 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
             <Panel className="absolute top-16 right-4 px-4 py-3 text-lg leading-tight sm:right-6 md:top-6">
               <div className="mb-1 text-base opacity-60">PLACES</div>
               {TOUR.map((t) => {
-                const p = t.kind === 'landmark' ? PROJECTS.find((x) => x.id === t.id) : null
-                const key = p ? p.id : 'avatar'
+                const key = t.kind === 'landmark' ? t.id : 'avatar'
+                const [left, right] = placeLabels(t)
                 return (
                   <button
                     key={key}
                     type="button"
                     onClick={() => {
                       setMenu(false)
-                      select(t)
+                      selectVia('menu', t)
                     }}
                     onPointerEnter={() => setHovered(key)}
                     onPointerLeave={() => setHovered(null)}
                     className="flex w-full cursor-pointer gap-3 text-left hover:opacity-80"
                   >
                     <span style={{ color: hovered === key ? '#fff' : ART.accent }}>&#9656;</span>
-                    <span className="w-32">{p ? p.place : 'Say hi'}</span>
-                    <span className="opacity-70">{p ? p.name : 'About me'}</span>
+                    <span className="w-32">{left}</span>
+                    <span className="opacity-70">{right}</span>
                   </button>
                 )
               })}
@@ -367,17 +436,17 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
 
           {!selection && !timeTools && (
             <div className="absolute inset-x-4 bottom-5 flex flex-col items-center gap-3 sm:bottom-6">
-              {exploring && nearProject && (
+              {exploring && nearPlace && (
                 <button
                   type="button"
                   onClick={() => {
                     clearInput()
-                    select({ kind: 'landmark', id: nearProject.id })
+                    selectVia('explore', { kind: 'landmark', id: nearPlace.id })
                   }}
                   className="pointer-events-auto cursor-pointer px-4 py-2 text-2xl leading-none"
                   style={{ background: ART.accent, color: '#120e1c', boxShadow: '4px 4px 0 rgba(0,0,0,0.5)' }}
                 >
-                  {touch ? 'TAP' : '[E]'} ENTER {nearProject.place.toUpperCase()}
+                  {touch ? 'TAP' : '[E]'} ENTER {nearPlace.title.toUpperCase()}
                 </button>
               )}
               <div className="flex flex-wrap items-center justify-center gap-3">
@@ -429,7 +498,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
               selection={selection}
               onClose={() => select(null)}
               onStep={step}
-              onSelect={select}
+              onSelect={(next) => selectVia('panel', next)}
               reducedMotion={reducedMotion}
             />
           )}

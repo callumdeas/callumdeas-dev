@@ -1,5 +1,5 @@
 """
-Builds the five landmark buildings headlessly and exports one GLB.
+Builds the landmark buildings headlessly and exports one GLB.
 
     Blender -b --factory-startup --python scripts/blender/landmarks.py -- <out.glb> [preview_dir]
 
@@ -41,6 +41,7 @@ PREVIEW = {
     "Awning0": "#c97a8a", "Awning1": "#c9a25a", "Awning2": "#8a6fb0",
     "Pitch": "#4f8f45", "PitchStripe": "#5fa052", "SeatBlue": "#3a6fb0", "SeatWhite": "#e8ecf2", "Scoreboard": "#101418",
     "ShopSign0": "#2b2230", "ShopSign1": "#2b2230", "ShopSign2": "#2b2230",
+    "PostRed": "#c8282c", "PostSign": "#c8282c",
 }
 
 
@@ -668,7 +669,66 @@ def stadium():
     return r
 
 
-roots = [chapel(), workshop(), arcade(), farmhouse(), highstreet(), stadium()]
+# ============================================================================ POST OFFICE (enquiries)
+def postoffice():
+    r = root("postoffice")
+    b = Builder("postoffice_mesh")
+    glows = []
+    b.box((0, -0.12, -0.1), (2.5, 0.4, 2.0), "Stone", bevel=0.03)
+    # Red-brick building with cream quoins and a stone band
+    b.box((0, 0.72, -0.3), (2.0, 1.3, 1.3), "Brick")
+    for s in (1, -1):
+        for i in range(5):
+            b.box((0.99 * s, 0.17 + i * 0.27, 0.36), (0.07, 0.14, 0.07), "Cream")
+    b.box((0, 1.38, -0.3), (2.08, 0.08, 1.38), "Cream")
+    # Slate hipped roof with a ridge and twin chimneys
+    b.box((0, 1.62, -0.3), (2.05, 0.42, 1.35), "RoofSlate", taper=(0.72, 0.45))
+    b.box((0, 1.85, -0.3), (1.5, 0.05, 0.08), "Dark")
+    for s in (1, -1):
+        b.box((0.65 * s, 1.95, -0.55), (0.22, 0.5, 0.22), "Brick")
+        b.box((0.65 * s, 2.22, -0.55), (0.28, 0.05, 0.28), "Stone")
+    # Shopfront: cream surround, sign board, door and two big windows
+    b.box((0, 0.62, 0.36), (1.9, 1.05, 0.04), "Cream")
+    b.box((0, 1.2, 0.4), (1.7, 0.2, 0.05), "PostSign", sign=True)
+    b.box((0, 0.4, 0.385), (0.4, 0.68, 0.02), "PostRed")
+    b.box((0, 0.76, 0.39), (0.3, 0.16, 0.02), "Window")
+    b.box((0.1, 0.38, 0.4), (0.03, 0.03, 0.02), "Gold")
+    for x in (-0.6, 0.6):
+        b.box((x, 0.6, 0.385), (0.6, 0.62, 0.02), "Window")
+        b.box((x, 0.6, 0.4), (0.64, 0.04, 0.02), "WoodDark")
+        b.box((x, 0.6, 0.4), (0.04, 0.66, 0.02), "WoodDark")
+        b.box((x, 0.26, 0.43), (0.66, 0.05, 0.1), "Cream")
+        glows.append(("night", "#ffcf7a", 0.9, (x, 0.6, 0.5)))
+    b.box((0, 0.03, 0.62), (0.6, 0.06, 0.3), "Stone")  # step
+    # Pillar box: the bit visitors actually post through
+    px, pz = -1.0, 0.95
+    b.cylinder((px, 0.32, pz), 0.14, 0.64, "PostRed", segments=8)
+    b.cylinder((px, 0.05, pz), 0.17, 0.1, "Dark", segments=8)
+    b.dome((px, 0.64, pz), 0.155, "PostRed", segments=8)
+    b.cylinder((px, 0.64, pz), 0.165, 0.04, "PostRed", segments=8)
+    b.box((px, 0.5, pz + 0.135), (0.14, 0.025, 0.02), "Dark")  # slot
+    b.box((px, 0.36, pz + 0.135), (0.1, 0.08, 0.01), "White")  # collection plate
+    # Phone box on the other side
+    qx, qz = 1.0, 0.9
+    b.box((qx, 0.55, qz), (0.36, 1.0, 0.36), "PostRed")
+    b.box((qx, 1.1, qz), (0.4, 0.1, 0.4), "PostRed")
+    b.dome((qx, 1.15, qz), 0.21, "PostRed", segments=6)
+    for i in range(3):
+        b.box((qx, 0.4 + i * 0.2, qz + 0.185), (0.24, 0.15, 0.01), "Window")
+    b.box((qx, 0.98, qz + 0.185), (0.26, 0.06, 0.012), "White")
+    glows.append(("night", "#ffe0a8", 0.7, (qx, 0.6, qz + 0.3)))
+    # Lamp by the door
+    b.box((-1.12, 0.4, 0.5), (0.04, 0.8, 0.04), "Dark")
+    b.box((-1.12, 0.84, 0.5), (0.1, 0.1, 0.1), "Lamp")
+    glows.append(("night", "#ffb862", 0.8, (-1.12, 0.84, 0.5)))
+    b.to_object(r)
+    marker(r, "smoke_0", (0.65, 2.3, -0.55))
+    for i, gl in enumerate(glows):
+        glow(r, *gl[:3], gl[3], i)
+    return r
+
+
+roots = [chapel(), workshop(), arcade(), farmhouse(), highstreet(), stadium(), postoffice()]
 
 total_tris = 0
 for o in bpy.data.objects:
