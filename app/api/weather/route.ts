@@ -3,7 +3,7 @@ import { fromWmo, type WeatherReport } from '../../_lib/weather-types'
 
 /**
  * Current weather where the visitor is. Location comes from Cloudflare's coarse
- * IP geolocation (city level); without it (local dev), from the lat/lon the
+ * IP geolocation, used only to pick the forecast (never shown or returned); without it (local dev), from the lat/lon the
  * client guessed from its timezone. Coordinates are rounded to half a degree
  * before leaving the Worker, and responses are cached per rounded cell.
  */
@@ -11,7 +11,7 @@ import { fromWmo, type WeatherReport } from '../../_lib/weather-types'
 const TTL_MS = 15 * 60_000
 const cache = new Map<string, { at: number; report: WeatherReport }>()
 
-type Geo = { lat: number; lon: number; place: string | null }
+type Geo = { lat: number; lon: number }
 
 const num = (v: unknown): number | null => {
   const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : NaN
@@ -27,7 +27,7 @@ function cloudflareGeo(): Geo | null {
     const lat = num(cf.latitude)
     const lon = num(cf.longitude)
     if (lat === null || lon === null || !inRange(lat, lon)) return null
-    return { lat, lon, place: typeof cf.city === 'string' && cf.city ? cf.city : null }
+    return { lat, lon }
   } catch {
     // Not running on Workers (next dev): fall back to the client's guess.
     return null
@@ -38,14 +38,14 @@ function queryGeo(url: URL): Geo | null {
   const lat = num(url.searchParams.get('lat'))
   const lon = num(url.searchParams.get('lon'))
   if (lat === null || lon === null || !inRange(lat, lon)) return null
-  return { lat, lon, place: null }
+  return { lat, lon }
 }
 
 const round = (v: number) => Math.round(v * 2) / 2
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 
-async function fetchWeather(lat: number, lon: number): Promise<Omit<WeatherReport, 'place'> | null> {
+async function fetchWeather(lat: number, lon: number): Promise<WeatherReport | null> {
   const api = new URL('https://api.open-meteo.com/v1/forecast')
   api.searchParams.set('latitude', String(lat))
   api.searchParams.set('longitude', String(lon))
@@ -77,9 +77,8 @@ export async function GET(request: Request) {
 
   if (!report) {
     try {
-      const w = await fetchWeather(lat, lon)
-      if (!w) return Response.json({ error: 'upstream' }, { status: 502 })
-      report = { ...w, place: null }
+      report = await fetchWeather(lat, lon)
+      if (!report) return Response.json({ error: 'upstream' }, { status: 502 })
       cache.set(key, { at: Date.now(), report })
       if (cache.size > 500) cache.delete(cache.keys().next().value ?? key)
     } catch {
@@ -87,8 +86,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const body: WeatherReport = { ...report, place: geo.place }
-  return Response.json(body, {
+  return Response.json(report, {
     headers: { 'Cache-Control': 'private, max-age=600' },
   })
 }

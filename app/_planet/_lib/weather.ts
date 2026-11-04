@@ -101,7 +101,7 @@ export function applyReport(report: WeatherReport, source: 'live' | 'override') 
 
 /** For review: pretend it's a given kind of weather here. */
 export function overrideWeather(kind: WeatherKind) {
-  applyReport({ kind, intensity: 0.85, cloud: 0.8, wind: kind === 'storm' ? 12 : 4, tempC: kind === 'snow' ? -2 : 9, place: weather.report?.place ?? null }, 'override')
+  applyReport({ kind, intensity: 0.85, cloud: 0.8, wind: kind === 'storm' ? 12 : 4, tempC: kind === 'snow' ? -2 : 9 }, 'override')
 }
 
 const KEYS: readonly (keyof Mix)[] = ['overcast', 'cloud', 'rain', 'snow', 'fog', 'storm', 'wind']
@@ -150,8 +150,7 @@ function isReport(v: unknown): v is WeatherReport {
     typeof r.intensity === 'number' &&
     typeof r.cloud === 'number' &&
     typeof r.wind === 'number' &&
-    typeof r.tempC === 'number' &&
-    (r.place === null || typeof r.place === 'string')
+    typeof r.tempC === 'number'
   )
 }
 
