@@ -399,7 +399,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
             <button
               type="button"
               onClick={() => setMenu((v) => !v)}
-              className="pointer-events-auto absolute top-4 right-4 z-10 min-h-11 cursor-pointer touch-manipulation px-4 py-2 text-xl leading-none"
+              className="pointer-events-auto absolute top-4 right-4 cursor-pointer px-3 py-2 text-xl leading-none"
               style={{ background: 'rgba(12,10,24,0.84)', border: '2px solid rgba(255,255,255,0.88)' }}
               aria-expanded={menu}
             >
@@ -408,7 +408,7 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
           )}
 
           {!selection && !exploring && (desktop || menu) && (
-            <Panel className="absolute top-18 right-4 z-10 px-4 py-2 text-lg leading-tight sm:right-6 md:top-6 md:py-3">
+            <Panel className="absolute top-16 right-4 px-4 py-3 text-lg leading-tight sm:right-6 md:top-6">
               <div className="mb-1 text-base opacity-60">PLACES</div>
               {TOUR.map((t) => {
                 const key = t.kind === 'landmark' ? t.id : 'avatar'
@@ -421,9 +421,16 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
                       setMenu(false)
                       selectVia('menu', t)
                     }}
-                    onPointerEnter={() => setHovered(key)}
-                    onPointerLeave={() => setHovered(null)}
-                    className="flex min-h-11 w-full cursor-pointer touch-manipulation items-center gap-3 text-left hover:opacity-80 md:min-h-0"
+                    // Mouse only: on touch, pointerenter fires as the finger lands and pops the
+                    // landmark's tooltip into the page; iOS Safari then treats the tap as a "hover"
+                    // and never sends the click, so the menu wouldn't navigate.
+                    onPointerEnter={(e) => {
+                      if (e.pointerType === 'mouse') setHovered(key)
+                    }}
+                    onPointerLeave={(e) => {
+                      if (e.pointerType === 'mouse') setHovered(null)
+                    }}
+                    className="flex w-full cursor-pointer gap-3 text-left hover:opacity-80"
                   >
                     <span style={{ color: hovered === key ? '#fff' : ART.accent }}>&#9656;</span>
                     <span className="w-32">{left}</span>
