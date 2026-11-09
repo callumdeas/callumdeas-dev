@@ -42,6 +42,8 @@ PREVIEW = {
     "Pitch": "#4f8f45", "PitchStripe": "#5fa052", "SeatBlue": "#3a6fb0", "SeatWhite": "#e8ecf2", "Scoreboard": "#101418",
     "ShopSign0": "#2b2230", "ShopSign1": "#2b2230", "ShopSign2": "#2b2230",
     "PostRed": "#c8282c", "PostSign": "#c8282c",
+    # The Hill (Gloaming): the planet's own ground colours (art.ts ART.ground)
+    "MountainGrass": "#62804f", "MountainRock": "#7c6b84", "Snow": "#f2e6ee", "Trail": "#c49a7c",
 }
 
 
@@ -166,6 +168,16 @@ class Builder:
         for f in ((a, c, b), (a2, b2, c2), (a, a2, c2, c), (b, c, c2, b2), (a, b, b2, a2)):
             self.bm.faces.new(f)
         return self._finish(verts, mat, center, rot)
+
+    def tris(self, points, faces, mats):
+        """Raw triangles in three space: points are Vectors, faces index triples (counter-clockwise from outside)."""
+        vs = [self.bm.verts.new(to_blender(p)) for p in points]
+        out = []
+        for f, mat in zip(faces, mats):
+            face = self.bm.faces.new([vs[i] for i in f])
+            face.material_index = self.mat_index(mat)
+            out.append(face)
+        return out
 
     def arch(self, center, radius, thickness, mat, segments=9, depth=0.08):
         """Semicircle of blocks (rot about z-axis in three space)."""
@@ -728,7 +740,107 @@ def postoffice():
     return r
 
 
-roots = [chapel(), workshop(), arcade(), farmhouse(), highstreet(), stadium(), postoffice()]
+# ============================================================================ THE HILL (Gloaming)
+# A plain snow-capped mountain: faceted slopes, a cairn on the summit, and a
+# trail that winds up from the foot. Colours match the planet's own ground.
+MTN_H = 2.5
+MTN_R = 1.8
+MTN_SEGS = 11
+MTN_RINGS = (0.22, 0.55, 0.95, 1.35, MTN_R)
+
+
+def mtn_noise(k, j):
+    return 0.5 * math.sin(j * 2.3 + k * 1.7) + 0.5 * math.sin(j * 5.1 - k * 0.9)
+
+
+def mtn_profile(r):
+    return MTN_H * max(0.0, 1 - r / MTN_R) ** 1.15
+
+
+def gloaming():
+    r = root("gloaming")
+    b = Builder("gloaming_mesh")
+
+    # Slopes: a summit vertex, rings of jittered vertices, and a skirt sunk into the ground.
+    verts = [Vector((0, MTN_H, 0))]
+    rings = []
+    for k, radius in enumerate(MTN_RINGS + (MTN_R + 0.25,)):
+        ring = []
+        for j in range(MTN_SEGS):
+            n = mtn_noise(k, j)
+            a = 2 * math.pi * j / MTN_SEGS + k * 0.17
+            rr = radius * (1 + 0.07 * n)
+            if k == 0:
+                y = MTN_H - 0.03  # small flat summit for the cairn
+            elif k == len(MTN_RINGS):
+                y = -0.25
+            else:
+                y = mtn_profile(radius) + 0.12 * n
+            ring.append(len(verts))
+            verts.append(Vector((math.cos(a) * rr, y, -math.sin(a) * rr)))
+        rings.append(ring)
+    tris = []
+    for j in range(MTN_SEGS):
+        tris.append((0, rings[0][j], rings[0][(j + 1) % MTN_SEGS]))
+    for k in range(len(rings) - 1):
+        inner, outer = rings[k], rings[k + 1]
+        for j in range(MTN_SEGS):
+            j2 = (j + 1) % MTN_SEGS
+            tris.append((inner[j], outer[j], outer[j2]))
+            tris.append((inner[j], outer[j2], inner[j2]))
+
+    def slope_mat(tri, i):
+        y = sum(verts[v].y for v in tri) / 3
+        n = math.sin(i * 1.9) * 0.5 + math.sin(i * 0.7) * 0.5
+        if y > 1.55 + 0.18 * n:
+            return "Snow"
+        if y > 0.6 + 0.15 * n:
+            return "MountainRock"
+        return "MountainGrass"
+
+    b.tris(verts, tris, [slope_mat(t, i) for i, t in enumerate(tris)])
+
+    # The trail: ledges laid on the real slope (ray cast), winding 1.3 turns from the front foot to the summit.
+    from mathutils.bvhtree import BVHTree
+
+    bvh = BVHTree.FromPolygons(verts, tris)
+
+    def ground(x, z):
+        hit = bvh.ray_cast(Vector((x, MTN_H + 2, z)), Vector((0, -1, 0)))
+        return hit[0].y if hit[0] is not None else 0.0
+
+    steps = 44
+    a0 = -math.pi / 2 - 0.35
+    pts = []
+    for i in range(steps + 1):
+        t = i / steps
+        a = a0 + t * 1.3 * 2 * math.pi
+        rad = (MTN_R + 0.15) * (1 - t) + 0.2 * t
+        pts.append((math.cos(a) * rad, -math.sin(a) * rad))
+    for i in range(steps):
+        (x0, z0), (x1, z1) = pts[i], pts[i + 1]
+        mx, mz = (x0 + x1) / 2, (z0 + z1) / 2
+        length = math.hypot(x1 - x0, z1 - z0)
+        yaw = math.atan2(-(z1 - z0), x1 - x0)
+        y = max(ground(mx, mz), 0.0)
+        b.box((mx, y + 0.01, mz), (length + 0.04, 0.09, 0.17), "Trail", rot=(0, yaw, 0))
+
+    # Cairn on the summit
+    ty = MTN_H - 0.03
+    stones = [(0, 0, 0.16, 0.08), (0.12, 0.05, 0.11, 0.06), (-0.1, 0.07, 0.11, 0.06), (0.02, -0.02, 0.12, 0.21), (0.0, 0.01, 0.09, 0.33), (0.01, 0.0, 0.06, 0.42)]
+    for dx, dz, size, dy in stones:
+        b.ico((dx, ty + dy, dz), size, "Stone", scale=(1, 0.75, 1))
+
+    # Signpost where the trail starts
+    sx, sz = pts[0][0] - 0.25, pts[0][1] + 0.15
+    b.box((sx, 0.25, sz), (0.06, 0.5, 0.06), "WoodDark")
+    b.box((sx + 0.1, 0.44, sz), (0.24, 0.07, 0.03), "Wood", rot=(0, 0.3, 0))
+
+    b.to_object(r)
+    return r
+
+
+roots = [chapel(), workshop(), arcade(), farmhouse(), highstreet(), stadium(), postoffice(), gloaming()]
 
 total_tris = 0
 for o in bpy.data.objects:

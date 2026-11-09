@@ -26,6 +26,7 @@ const MARKER_HEIGHT: Record<LandmarkId, number> = {
   highstreet: 2.6,
   stadium: 3.6,
   postoffice: 2.9,
+  gloaming: 3.5,
 }
 
 /** Invisible, generous click targets so small buildings are easy to pick. */
@@ -37,6 +38,7 @@ const HITBOX: Record<LandmarkId, { size: V3; y: number }> = {
   highstreet: { size: [5.6, 2.4, 2.6], y: 0.9 },
   stadium: { size: [4.2, 2.8, 3.8], y: 1.0 },
   postoffice: { size: [2.8, 2.6, 2.4], y: 1.0 },
+  gloaming: { size: [3.6, 2.8, 3.6], y: 1.1 },
 }
 const hitMaterial = new THREE.MeshBasicMaterial({ visible: false })
 
@@ -159,6 +161,10 @@ function materialFor(name: string, m: Palette): THREE.Material {
     Scoreboard: m.scoreboard,
     PostRed: m.postRed,
     PostSign: m.postSign,
+    MountainGrass: m.mountainGrass,
+    MountainRock: m.mountainRock,
+    Snow: m.snow,
+    Trail: m.trail,
   }
   return table[name] ?? m.dark
 }
