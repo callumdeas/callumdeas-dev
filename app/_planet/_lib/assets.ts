@@ -96,6 +96,11 @@ export function makePalette() {
     postRed: ps1Material({ color: '#c8282c' }),
     postSign: ps1Material({ color: '#ffffff', map: t.postSign, emissive: '#ffffff', emissiveMap: t.postSign, emissiveIntensity: 0 }),
     pumpkin: ps1Material({ color: '#e5782c' }),
+    // The Hill (Gloaming): a mountain in the planet's own ground colours
+    mountainGrass: ps1Material({ color: ART.ground.grass[0], map: t.grain }),
+    mountainRock: ps1Material({ color: ART.ground.rock, map: t.grain }),
+    snow: ps1Material({ color: ART.ground.snow, map: t.grain }),
+    trail: ps1Material({ color: ART.ground.path, map: t.grain }),
     awnings: t.awnings.map((map) => ps1Material({ map })),
     facades: FACADES.map((color) => ps1Material({ color, map: t.plaster })),
     // Avatar (placeholder for the Blender-built one)

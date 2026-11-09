@@ -108,6 +108,24 @@ export const PROJECTS: readonly Project[] = [
     status: 'Live on iOS',
   },
   {
+    id: 'gloaming',
+    place: 'The Hill',
+    name: 'Gloaming',
+    kind: 'iOS app · coming soon',
+    tagline: 'A mood tracker where every day is a step up a hill.',
+    intro:
+      'Gloaming turns how you feel into a walk. Each day you take one step, onto ground as high as you felt, and over the months your own hill takes shape. Its colours come from a real Scottish dusk, the gloaming.',
+    highlights: [
+      'Home screen is a hand-built contour map of your year',
+      'Quick check-ins with feeling words, notes and intentions',
+      'Home Screen, Lock Screen and Control Center widgets',
+      'Optional Apple Health State of Mind and iCloud sync; private by design',
+    ],
+    stack: ['Swift', 'SwiftUI', 'SwiftData', 'WidgetKit', 'HealthKit', 'CloudKit'],
+    links: [],
+    status: 'In development',
+  },
+  {
     id: 'highstreet',
     place: 'High Street',
     name: 'Client work',
