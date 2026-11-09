@@ -421,8 +421,15 @@ export default function Experience({ onReady, onTextVersion }: { onReady: () => 
                       setMenu(false)
                       selectVia('menu', t)
                     }}
-                    onPointerEnter={() => setHovered(key)}
-                    onPointerLeave={() => setHovered(null)}
+                    // Mouse only: on touch, pointerenter fires as the finger lands and pops the
+                    // landmark's tooltip into the page; iOS Safari then treats the tap as a "hover"
+                    // and never sends the click, so the menu wouldn't navigate.
+                    onPointerEnter={(e) => {
+                      if (e.pointerType === 'mouse') setHovered(key)
+                    }}
+                    onPointerLeave={(e) => {
+                      if (e.pointerType === 'mouse') setHovered(null)
+                    }}
                     className="flex w-full cursor-pointer gap-3 text-left hover:opacity-80"
                   >
                     <span style={{ color: hovered === key ? '#fff' : ART.accent }}>&#9656;</span>
