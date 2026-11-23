@@ -40,13 +40,11 @@ const DEBUG = new URLSearchParams(window.location.search).has('debug')
 const TOUR: readonly Exclude<Selection, null>[] = [
   { kind: 'avatar' },
   ...PROJECTS.map((p): Exclude<Selection, null> => ({ kind: 'landmark', id: p.id })),
-  { kind: 'landmark', id: 'postoffice' },
 ]
 
 /** Places menu rows: [left label, right label]. */
 function placeLabels(t: Exclude<Selection, null>): [string, string] {
   if (t.kind === 'avatar') return ['Say hi', 'About me']
-  if (t.id === 'postoffice') return ['Post Office', 'Get in touch']
   const p = projectById(t.id)
   return [p.place, p.name]
 }
