@@ -1,10 +1,7 @@
 'use client'
 
 import { ART } from '../_lib/art'
-import { EnquiryForm } from '../../_lib/EnquiryForm'
-import { ENQUIRY_TO } from '../../_lib/enquiry'
-import { ABOUT, PROJECTS, isProjectId, projectById, type Project } from '../_lib/projects'
-import { sound } from '../_lib/sound'
+import { ABOUT, PROJECTS, projectById, type Project } from '../_lib/projects'
 import type { Selection } from '../_lib/selection'
 import { PANEL_STYLE, RetroButton, RetroLink, pixelFont, useTypewriter } from './retro'
 
@@ -89,46 +86,12 @@ function ProjectBody({ project, instant }: { project: Project; instant: boolean 
   )
 }
 
-export const POST_OFFICE = {
-  place: 'The Post Office',
-  title: 'Get in touch',
-  sub: 'Freelance work, products, roles, or just hello',
-  intro:
-    "Got a project in mind, or just want to say hi? Write it down and pop it in the pillar box. It lands straight in my inbox, and I'll write back.",
-}
-
-function PostBody({ instant }: { instant: boolean }) {
-  return (
-    <>
-      <Intro text={POST_OFFICE.intro} instant={instant} />
-      <Heading>WRITE A LETTER</Heading>
-      <EnquiryForm variant="retro" onSent={() => sound.chime()} />
-      <Heading>PREFER EMAIL?</Heading>
-      <a
-        href={`mailto:${ENQUIRY_TO}`}
-        className="text-xl underline underline-offset-4 hover:opacity-80"
-        style={{ color: ART.accent, textDecorationColor: 'rgba(255,255,255,0.3)' }}
-      >
-        {ENQUIRY_TO}
-      </a>
-    </>
-  )
-}
-
 function AboutBody({ onSelect, instant }: { onSelect: Props['onSelect']; instant: boolean }) {
   return (
     <>
       <Intro text={ABOUT.intro} instant={instant} />
       <Heading>SAY HELLO</Heading>
       <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => onSelect({ kind: 'landmark', id: 'postoffice' })}
-          className="inline-block cursor-pointer px-3 py-1 text-xl leading-none transition-transform hover:-translate-y-0.5"
-          style={{ background: ART.accent, color: '#120e1c', boxShadow: '3px 3px 0 rgba(0,0,0,0.5)' }}
-        >
-          ✉ Write me a letter
-        </button>
         {ABOUT.links.map((l) => (
           <RetroLink key={l.href} href={l.href}>
             {l.label}
@@ -156,18 +119,17 @@ function AboutBody({ onSelect, instant }: { onSelect: Props['onSelect']; instant
 }
 
 export function InfoPanel({ selection, onClose, onStep, onSelect, reducedMotion }: Props) {
-  const post = selection.kind === 'landmark' && selection.id === 'postoffice'
-  const project = selection.kind === 'landmark' && isProjectId(selection.id) ? projectById(selection.id) : null
-  const key = post ? 'postoffice' : project ? project.id : 'about'
-  const place = post ? POST_OFFICE.place : project ? project.place : 'By the chapel'
-  const title = post ? POST_OFFICE.title : project ? project.name : ABOUT.name
-  const sub = post ? POST_OFFICE.sub : project ? `${project.kind} · ${project.tagline}` : ABOUT.role
+  const project = selection.kind === 'landmark' ? projectById(selection.id) : null
+  const key = project ? project.id : 'about'
+  const place = project ? project.place : 'By the chapel'
+  const title = project ? project.name : ABOUT.name
+  const sub = project ? `${project.kind} · ${project.tagline}` : ABOUT.role
   return (
     <aside
       key={key}
       className={`${reducedMotion ? '' : 'retro-panel-in '}pointer-events-auto absolute inset-x-2 bottom-2 flex max-h-[58vh] flex-col text-white md:inset-x-auto md:top-4 md:right-4 md:bottom-4 md:max-h-none md:w-[440px]`}
       style={{ ...PANEL_STYLE, ...pixelFont }}
-      aria-label={post ? 'Contact form' : project ? `${project.name} details` : 'About Callum'}
+      aria-label={project ? `${project.name} details` : 'About Callum'}
     >
       <header className="px-5 pt-4 pb-3" style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
         <div className="flex items-start justify-between gap-3">
@@ -183,9 +145,7 @@ export function InfoPanel({ selection, onClose, onStep, onSelect, reducedMotion 
       </header>
 
       <div className="retro-scroll flex-1 overflow-y-auto px-5 pb-5">
-        {post ? (
-          <PostBody instant={reducedMotion} />
-        ) : project ? (
+        {project ? (
           <ProjectBody project={project} instant={reducedMotion} />
         ) : (
           <AboutBody onSelect={onSelect} instant={reducedMotion} />

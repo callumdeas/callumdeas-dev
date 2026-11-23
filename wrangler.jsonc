@@ -11,10 +11,8 @@
 // build time into the Worker; scripts/cf-build.mjs empties that copy and fails
 // the build if any local .env value still appears in .open-next/.
 //
-// Runtime secrets (set with `wrangler secret put`, never in a file):
-//   RESEND_API_KEY  the post office (/api/enquiry). Without it the form falls
-//                   back to a prefilled mailto: link. Locally, put it in
-//                   .dev.vars for `pnpm preview`.
+// No runtime secrets. If one is ever needed, set it with `wrangler secret put`
+// (locally in .dev.vars for `pnpm preview`), never in a file.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "callumdeas-dev",

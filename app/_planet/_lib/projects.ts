@@ -4,10 +4,8 @@ export type ProjectLink = { label: string; href: string }
 
 export type Client = { name: string; href: string; blurb: string }
 
-/** Every landmark except the post office is a project. */
-export type ProjectId = Exclude<LandmarkId, 'postoffice'>
-
-export const isProjectId = (id: LandmarkId): id is ProjectId => id !== 'postoffice'
+/** Every landmark is a project. */
+export type ProjectId = LandmarkId
 
 export type Project = {
   id: ProjectId

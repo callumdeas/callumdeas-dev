@@ -22,9 +22,6 @@ export type EventName =
   | 'explore_stopped'
   | 'sound_toggled'
   | 'secret_found'
-  | 'enquiry_opened'
-  | 'enquiry_sent'
-  | 'enquiry_failed'
 
 const queue: { event: EventName; props: EventProps }[] = []
 let client: PostHog | null = null
